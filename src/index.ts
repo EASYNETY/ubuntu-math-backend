@@ -14,6 +14,7 @@ const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://qosbot:qosbot@micr
 app.use(cors({
     origin: [
         'https://ubuntu-math-frontend.vercel.app',
+        'https://ubuntu-math-frontend.onrender.com',
         'https://ubuntu-math.cams.org.za',
         'http://localhost:5173',
         'http://localhost:5000'
@@ -22,37 +23,19 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// Connect to MongoDB
-let isConnected = false;
-const connectDB = async () => {
-    if (isConnected) {
-        return;
-    }
-    try {
-        await mongoose.connect(MONGODB_URI);
-        isConnected = true;
-        console.log('Connected to MongoDB');
-    } catch (err) {
-        console.error('MongoDB connection error:', err);
-        throw err;
-    }
-};
-
-// Middleware to ensure DB connection
-app.use(async (req, res, next) => {
-    await connectDB();
-    next();
-});
-
 app.get('/ping2', (req, res) => res.send('pong2'));
 app.use('/api', apiRoutes);
+console.log('API routes mounted at /api');
 
-// For local development
-if (process.env.NODE_ENV !== 'production') {
-    app.listen(PORT, () => {
-        console.log(`Server running on port ${PORT}`);
+mongoose.connect(MONGODB_URI)
+    .then(() => {
+        console.log('Connected to MongoDB');
+        app.listen(PORT, () => {
+            console.log(`Server running on port ${PORT}`);
+        });
+    })
+    .catch((err) => {
+        console.error('MongoDB connection error:', err);
     });
-}
 
-// Export for Vercel serverless
 export default app;
