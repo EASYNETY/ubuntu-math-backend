@@ -80,3 +80,23 @@ export const updateUserRole = async (req: Request, res: Response) => {
         res.status(500).json({ error: 'Failed to update role' });
     }
 };
+
+export const deleteUser = async (req: Request, res: Response) => {
+    try {
+        const userId = req.params.id;
+        
+        // Delete user's progress records
+        await StudentProgress.deleteMany({ userId });
+        
+        // Delete user's analytics events
+        await AnalyticsEvent.deleteMany({ userId });
+        
+        // Delete the user
+        await User.findByIdAndDelete(userId);
+        
+        res.json({ message: 'User deleted successfully' });
+    } catch (error) {
+        console.error('Delete user error:', error);
+        res.status(500).json({ error: 'Failed to delete user' });
+    }
+};

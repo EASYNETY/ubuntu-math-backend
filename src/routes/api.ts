@@ -3,8 +3,8 @@ import { getStories, getStoryBySlug, createStory, updateStory, deleteStory } fro
 import { getInnovationById, getInnovationByStory } from '../controllers/innovation';
 import { getModuleById, getModuleByInnovation, getModules, createModule, updateModule, deleteModule } from '../controllers/module';
 import { updateProgress, completeModule, getProgress } from '../controllers/progress';
-import { trackEvent, getDashboardStats, getAllUsers, updateUserRole } from '../controllers/admin';
-import { signin, signup, getMe } from '../controllers/auth';
+import { trackEvent, getDashboardStats, getAllUsers, updateUserRole, deleteUser } from '../controllers/admin';
+import { signin, signup, getMe, createUser } from '../controllers/auth';
 import { calculateUbuntu } from '../controllers/computation';
 
 const router = express.Router();
@@ -13,12 +13,14 @@ const router = express.Router();
 router.post('/auth/register', signup);
 router.post('/auth/signin', signin);
 router.get('/auth/me/:userId', getMe);
+router.post('/admin/users/create', createUser);
 
 // Admin & Analytics
 router.post('/analytics/track', trackEvent);
 router.get('/admin/stats', getDashboardStats);
 router.get('/admin/users', getAllUsers);
 router.patch('/admin/users/:id/role', updateUserRole);
+router.delete('/admin/users/:id', deleteUser);
 
 // Stories
 router.get('/stories', getStories);
