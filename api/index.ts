@@ -1,4 +1,3 @@
-import '../dist/index';
-import app from '../dist/index';
+import app from '../src/index';
 
 export default app;
