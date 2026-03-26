@@ -1,0 +1,5 @@
+import mongoose, { Schema, Document } from 'mongoose';
+export type SubscriptionTier = 'free'|'basic'|'professional'|'institutional';
+export interface ISubscription extends Document { userId: mongoose.Types.ObjectId; tier: SubscriptionTier; billingCycle: 'monthly'|'annual'; status: 'active'|'cancelled'|'expired'|'trial'; startDate: Date; endDate: Date; priceUSD: number; paymentReference?: string; paymentGateway?: string; createdAt: Date; updatedAt: Date; }
+const SubscriptionSchema: Schema = new Schema({ userId:{type:Schema.Types.ObjectId,ref:'User',required:true,index:true}, tier:{type:String,enum:['free','basic','professional','institutional'],default:'free'}, billingCycle:{type:String,enum:['monthly','annual'],default:'monthly'}, status:{type:String,enum:['active','cancelled','expired','trial'],default:'active'}, startDate:{type:Date,default:Date.now}, endDate:{type:Date,required:true}, priceUSD:{type:Number,default:0}, paymentReference:String, paymentGateway:{type:String,enum:['stripe','paystack','flutterwave','manual'],default:'manual'} },{timestamps:true});
+export default mongoose.model<ISubscription>('Subscription', SubscriptionSchema);

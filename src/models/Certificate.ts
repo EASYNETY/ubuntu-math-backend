@@ -1,0 +1,4 @@
+import mongoose, { Schema, Document } from 'mongoose';
+export interface ICertificate extends Document { userId: mongoose.Types.ObjectId; courseId: mongoose.Types.ObjectId; enrollmentId: mongoose.Types.ObjectId; userName: string; courseName: string; certificateNumber: string; downloadable: boolean; purchasedAt?: Date; issuedAt: Date; }
+const CertificateSchema: Schema = new Schema({ userId:{type:Schema.Types.ObjectId,ref:'User',required:true}, courseId:{type:Schema.Types.ObjectId,ref:'Course',required:true}, enrollmentId:{type:Schema.Types.ObjectId,ref:'Enrollment'}, userName:{type:String,required:true}, courseName:{type:String,required:true}, certificateNumber:{type:String,required:true,unique:true}, downloadable:{type:Boolean,default:false}, purchasedAt:Date, issuedAt:{type:Date,default:Date.now} },{timestamps:true});
+export default mongoose.model<ICertificate>('Certificate', CertificateSchema);

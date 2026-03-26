@@ -6,47 +6,24 @@ import { updateProgress, completeModule, getProgress } from '../controllers/prog
 import { trackEvent, getDashboardStats, getAllUsers, updateUserRole, deleteUser } from '../controllers/admin';
 import { signin, signup, getMe, createUser } from '../controllers/auth';
 import { calculateUbuntu } from '../controllers/computation';
-
+import { getCourses, getCourseBySlug, getCourseById, createCourse, updateCourse, deleteCourse, getAllCourses } from '../controllers/course';
+import { enrollCourse, getMyEnrollments, getEnrollment, updateLessonProgress, issueCertificate, purchaseCertificate } from '../controllers/enrollment';
+import { getMySubscription, createSubscription, cancelSubscription, getPricingPlans } from '../controllers/subscription';
+import { createStripeSession, verifyStripeSession, stripeWebhook, initPaystack, verifyPaystack, initFlutterwave, verifyFlutterwave } from '../controllers/payment';
+import { getGoogleAuthUrl, googleCallback, listGoogleCourses, importGoogleCourses } from '../controllers/googleClassroom';
+import { upload, uploadFile } from '../controllers/upload';
 const router = express.Router();
-
-// Auth
-router.post('/auth/register', signup);
-router.post('/auth/signin', signin);
-router.get('/auth/me/:userId', getMe);
-router.post('/admin/users/create', createUser);
-
-// Admin & Analytics
-router.post('/analytics/track', trackEvent);
-router.get('/admin/stats', getDashboardStats);
-router.get('/admin/users', getAllUsers);
-router.patch('/admin/users/:id/role', updateUserRole);
-router.delete('/admin/users/:id', deleteUser);
-
-// Stories
-router.get('/stories', getStories);
-router.get('/story/:slug', getStoryBySlug);
-router.post('/stories', createStory);
-router.put('/stories/:id', updateStory);
-router.delete('/stories/:id', deleteStory);
-
-// Innovations
-router.get('/innovation/:id', getInnovationById);
-router.get('/innovation/story/:storyId', getInnovationByStory);
-
-// Math Modules
-router.get('/modules', getModules);
-router.get('/module/:id', getModuleById);
-router.get('/module/innovation/:innovationId', getModuleByInnovation);
-router.post('/module', createModule);
-router.put('/module/:id', updateModule);
-router.delete('/module/:id', deleteModule);
-
-// Progress
-router.post('/progress/update', updateProgress);
-router.post('/progress/complete', completeModule);
-router.get('/progress/:userId', getProgress);
-
-// Computation
+router.post('/auth/register', signup); router.post('/auth/signin', signin); router.get('/auth/me/:userId', getMe); router.post('/admin/users/create', createUser);
+router.post('/analytics/track', trackEvent); router.get('/admin/stats', getDashboardStats); router.get('/admin/users', getAllUsers); router.patch('/admin/users/:id/role', updateUserRole); router.delete('/admin/users/:id', deleteUser);
+router.get('/stories', getStories); router.get('/story/:slug', getStoryBySlug); router.post('/stories', createStory); router.put('/stories/:id', updateStory); router.delete('/stories/:id', deleteStory);
+router.get('/innovation/:id', getInnovationById); router.get('/innovation/story/:storyId', getInnovationByStory);
+router.get('/modules', getModules); router.get('/module/:id', getModuleById); router.get('/module/innovation/:innovationId', getModuleByInnovation); router.post('/module', createModule); router.put('/module/:id', updateModule); router.delete('/module/:id', deleteModule);
+router.post('/progress/update', updateProgress); router.post('/progress/complete', completeModule); router.get('/progress/:userId', getProgress);
 router.post('/ubuntu/calculate', calculateUbuntu);
-
+router.post('/upload', upload.single('file'), uploadFile);
+router.get('/courses', getCourses); router.get('/courses/all', getAllCourses); router.get('/courses/:id', getCourseById); router.get('/course/slug/:slug', getCourseBySlug); router.post('/courses', createCourse); router.put('/courses/:id', updateCourse); router.delete('/courses/:id', deleteCourse);
+router.post('/enrollments', enrollCourse); router.get('/enrollments/user/:userId', getMyEnrollments); router.get('/enrollments/:userId/:courseId', getEnrollment); router.post('/enrollments/progress', updateLessonProgress); router.post('/enrollments/:enrollmentId/certificate', issueCertificate); router.post('/certificates/:certificateId/purchase', purchaseCertificate);
+router.get('/pricing', getPricingPlans); router.get('/subscriptions/:userId', getMySubscription); router.post('/subscriptions', createSubscription); router.delete('/subscriptions/:id', cancelSubscription);
+router.post('/payment/stripe/session', createStripeSession); router.post('/payment/stripe/verify', verifyStripeSession); router.post('/payment/stripe/webhook', stripeWebhook); router.post('/payment/paystack/init', initPaystack); router.post('/payment/paystack/verify', verifyPaystack); router.post('/payment/flutterwave/init', initFlutterwave); router.post('/payment/flutterwave/verify', verifyFlutterwave);
+router.get('/google/auth-url', getGoogleAuthUrl); router.get('/google/callback', googleCallback); router.get('/google/courses', listGoogleCourses); router.post('/google/import', importGoogleCourses);
 export default router;
