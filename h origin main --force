@@ -1,0 +1,15 @@
+[33mf2fbee6[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m courses added
+[33mdb47a04[m courses added
+[33ma464894[m[33m ([m[1;31morigin/main[m[33m)[m fixes
+[33mbaf04b9[m Fix NODE_ENV for Render build
+[33m8dbc814[m Fix tsconfig and build command for Render
+[33mf1e47fc[m Add Render configuration file
+[33m087feba[m Fix for Render deployment
+[33m02b3831[m Fix api folder compilation for Vercel
+[33ma0e66c8[m Fix api folder compilation for Vercel
+[33mcbf29da[m Fix api folder compilation for Vercel
+[33m3a7b8b8[m Fix api folder compilation for Vercel
+[33m34d0cae[m Fix api folder compilation for Vercel
+[33m29d8744[m Fix Vercel serverless with api folder
+[33mcf8c71e[m Fix Vercel serverless deployment
+[33m2ead2d4[m Initial commit - Ubuntu Math Platform Backend
