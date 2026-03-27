@@ -40,19 +40,42 @@ export const updateLessonProgress = async (req: Request, res: Response) => {
 };
 export const issueCertificate = async (req: Request, res: Response) => {
   try {
-    const { enrollmentId } = req.params; const { userId: bodyUserId } = req.body;
+    const { enrollmentId } = req.params;
+    const { userId: bodyUserId } = req.body;
     const enrollment = await Enrollment.findById(enrollmentId);
     if (!enrollment) return res.status(404).json({ message: 'Enrollment not found' });
     if (enrollment.overallProgress < 100) return res.status(400).json({ message: 'Course not completed yet' });
-    const userId = bodyUserId || enrollment.userId.toString();
-    if (enrollment.certificateIssued && enrollment.certificateId) { const existing = await Certificate.findById(enrollment.certificateId); if (existing) return res.json(existing); }
-    const user = await User.findById(userId); const course = await Course.findById(enrollment.courseId);
-    if (!user || !course) return res.status(404).json({ message: 'User or course not found' });
+
+    const userId = bodyUserId || enrollment.userId?.toString();
+    if (!userId) return res.status(400).json({ message: 'User ID missing' });
+
+    // Return existing certificate if already issued
+    if (enrollment.certificateIssued && enrollment.certificateId) {
+      const existing = await Certificate.findById(enrollment.certificateId);
+      if (existing) return res.json(existing);
+    }
+
+    const user = await User.findById(userId);
+    const course = await Course.findById(enrollment.courseId);
+    if (!user) return res.status(404).json({ message: 'User not found', userId });
+    if (!course) return res.status(404).json({ message: 'Course not found' });
+
     const certNumber = 'CAMS-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7).toUpperCase();
-    const cert = await Certificate.create({ userId, courseId: enrollment.courseId, enrollmentId, userName: user.name || user.email, courseName: course.title, certificateNumber: certNumber, downloadable: course.certificateIncluded });
-    enrollment.certificateIssued = true; enrollment.certificateId = cert._id as mongoose.Types.ObjectId; await enrollment.save();
+    const cert = await Certificate.create({
+      userId, courseId: enrollment.courseId, enrollmentId,
+      userName: (user as any).name || (user as any).email,
+      courseName: course.title,
+      certificateNumber: certNumber,
+      downloadable: course.certificateIncluded,
+    });
+    enrollment.certificateIssued = true;
+    enrollment.certificateId = cert._id as mongoose.Types.ObjectId;
+    await enrollment.save();
     res.status(201).json(cert);
-  } catch (err) { res.status(500).json({ message: 'Failed to issue certificate', error: err }); }
+  } catch (err: any) {
+    console.error('Certificate error:', err);
+    res.status(500).json({ message: 'Failed to issue certificate', error: err?.message || err });
+  }
 };
 export const purchaseCertificate = async (req: Request, res: Response) => {
   try { const cert = await Certificate.findByIdAndUpdate(req.params.certificateId, { downloadable: true, purchasedAt: new Date() }, { new: true }); if (!cert) return res.status(404).json({ message: 'Certificate not found' }); res.json(cert); }
