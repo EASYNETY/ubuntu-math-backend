@@ -16,6 +16,7 @@ import { getBooks, getBookBySlug, checkPurchase, downloadBook, initBookPayment, 
 import { getEssays, getEssayBySlug, downloadEssay, getAllEssays, createEssay, updateEssay, deleteEssay } from '../controllers/essay';
 import { getProcesses, getProcessBySlug, initProcessPayment, downloadProcess, getAllProcesses, createProcess, updateProcess, deleteProcess } from '../controllers/industrialProcess';
 import { getChannels, getPosts, createPost, likePost, deletePost, pinPost, searchPosts } from '../controllers/community';
+import { listCollections, cleanupCollections } from '../controllers/cleanup';
 
 const router = express.Router();
 
@@ -133,5 +134,9 @@ router.post('/community/posts/:id/like', likePost);
 router.delete('/community/posts/:id', deletePost);
 router.patch('/community/posts/:id/pin', pinPost);
 router.get('/community/search', searchPosts);
+
+// ── DB Cleanup (one-time use) ─────────────────────────────────────────────────
+router.get('/admin/collections', listCollections);
+router.post('/admin/cleanup-collections', cleanupCollections);
 
 export default router;
