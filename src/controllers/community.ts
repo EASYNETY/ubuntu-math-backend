@@ -1,21 +1,23 @@
 import { Request, Response } from 'express';
-import CommunityPost from '../models/CommunityPost';
+import { CommunityPost } from '../models/PlatformContent';
 
 const CHANNELS = ['general', 'essays', 'recipes', 'industrial', 'mathematics', 'announcements'];
 
 export const getChannels = (_req: Request, res: Response) => {
-  res.json(CHANNELS.map(id => ({
-    id,
-    label: id.charAt(0).toUpperCase() + id.slice(1),
-  })));
+  res.json(CHANNELS.map(id => ({ id, label: id.charAt(0).toUpperCase() + id.slice(1) })));
 };
 
 export const getPosts = async (req: Request, res: Response) => {
   try {
     const { channel = 'general', parentId, limit = 50, before } = req.query;
-    const query: any = { channel, deleted: false };
+    const query: any = { deleted: false };
+
+    // If no channel specified, get all channels
+    if (channel && channel !== 'all') query.channel = channel;
+
     if (parentId === 'null' || !parentId) query.parentId = null;
     else if (parentId) query.parentId = parentId;
+
     if (before) query.createdAt = { $lt: new Date(before as string) };
 
     const posts = await CommunityPost.find(query)
@@ -36,9 +38,14 @@ export const createPost = async (req: Request, res: Response) => {
   try {
     const { channel, userId, userName, userRole, content, parentId } = req.body;
     if (!content?.trim()) return res.status(400).json({ message: 'Content is required' });
+    if (!userId) return res.status(400).json({ message: 'userId is required' });
+    if (!userName) return res.status(400).json({ message: 'userName is required' });
+
     const post = await CommunityPost.create({
       channel: channel || 'general',
-      userId, userName, userRole: userRole || 'student',
+      userId,
+      userName,
+      userRole: userRole || 'student',
       content: content.trim(),
       parentId: parentId || null,
     });
@@ -51,9 +58,9 @@ export const likePost = async (req: Request, res: Response) => {
     const { userId } = req.body;
     const post = await CommunityPost.findById(req.params.id);
     if (!post) return res.status(404).json({ message: 'Post not found' });
-    const liked = post.likes.some(id => id.toString() === userId);
+    const liked = post.likes.some((id: any) => id.toString() === userId);
     if (liked) {
-      post.likes = post.likes.filter(id => id.toString() !== userId) as any;
+      post.likes = post.likes.filter((id: any) => id.toString() !== userId) as any;
     } else {
       post.likes.push(userId);
     }
@@ -71,16 +78,20 @@ export const deletePost = async (req: Request, res: Response) => {
 
 export const pinPost = async (req: Request, res: Response) => {
   try {
-    const post = await CommunityPost.findByIdAndUpdate(req.params.id, { pinned: true }, { new: true });
-    res.json(post);
+    const post = await CommunityPost.findById(req.params.id);
+    if (!post) return res.status(404).json({ message: 'Post not found' });
+    const newPinned = !post.pinned;
+    await CommunityPost.findByIdAndUpdate(req.params.id, { pinned: newPinned });
+    res.json({ pinned: newPinned });
   } catch (err) { res.status(500).json({ message: 'Failed to pin post', error: err }); }
 };
 
 export const searchPosts = async (req: Request, res: Response) => {
   try {
     const { q, channel } = req.query;
+    if (!q) return res.json([]);
     const query: any = { deleted: false, content: { $regex: q, $options: 'i' } };
-    if (channel) query.channel = channel;
+    if (channel && channel !== 'all') query.channel = channel;
     const posts = await CommunityPost.find(query).sort({ createdAt: -1 }).limit(30);
     res.json(posts);
   } catch (err) { res.status(500).json({ message: 'Search failed', error: err }); }

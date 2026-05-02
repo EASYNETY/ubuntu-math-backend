@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
-import Book from '../models/Book';
-import BookPurchase from '../models/BookPurchase';
+import { Book, BookPurchase } from '../models/PlatformContent';
 import https from 'https';
 
 const BUNDLE_PRICE = 499.99;
@@ -51,7 +50,7 @@ export const downloadBook = async (req: Request, res: Response) => {
     }
 
     await Book.findByIdAndUpdate(book._id, { $inc: { downloadCount: 1 } });
-    res.json({ downloadUrl: book.fullFileUrl });
+    res.json({ downloadUrl: (book as any).fullFileUrl });
   } catch (err) { res.status(500).json({ message: 'Download failed', error: err }); }
 };
 

@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import Essay from '../models/Essay';
+import { Essay } from '../models/PlatformContent';
 
 export const getEssays = async (req: Request, res: Response) => {
   try {

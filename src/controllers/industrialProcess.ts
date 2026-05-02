@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import IndustrialProcess from '../models/IndustrialProcess';
+import { IndustrialProcess } from '../models/PlatformContent';
 import https from 'https';
 
 export const getProcesses = async (req: Request, res: Response) => {
@@ -20,10 +20,10 @@ export const getProcesses = async (req: Request, res: Response) => {
 
 export const getProcessBySlug = async (req: Request, res: Response) => {
   try {
-    const process = await IndustrialProcess.findOne({ slug: req.params.slug, published: true })
+    const proc = await IndustrialProcess.findOne({ slug: req.params.slug, published: true })
       .select('-fullFileUrl');
-    if (!process) return res.status(404).json({ message: 'Process not found' });
-    res.json(process);
+    if (!proc) return res.status(404).json({ message: 'Process not found' });
+    res.json(proc);
   } catch (err) { res.status(500).json({ message: 'Failed to fetch process', error: err }); }
 };
 
@@ -65,10 +65,10 @@ export const initProcessPayment = async (req: Request, res: Response) => {
 
 export const downloadProcess = async (req: Request, res: Response) => {
   try {
-    const process = await IndustrialProcess.findById(req.params.id);
-    if (!process) return res.status(404).json({ message: 'Process not found' });
-    await IndustrialProcess.findByIdAndUpdate(process._id, { $inc: { downloadCount: 1 } });
-    res.json({ downloadUrl: process.fullFileUrl });
+    const proc = await IndustrialProcess.findById(req.params.id);
+    if (!proc) return res.status(404).json({ message: 'Process not found' });
+    await IndustrialProcess.findByIdAndUpdate(proc._id, { $inc: { downloadCount: 1 } });
+    res.json({ downloadUrl: proc.fullFileUrl });
   } catch (err) { res.status(500).json({ message: 'Download failed', error: err }); }
 };
 
@@ -78,15 +78,15 @@ export const getAllProcesses = async (_req: Request, res: Response) => {
 };
 
 export const createProcess = async (req: Request, res: Response) => {
-  try { const process = await IndustrialProcess.create(req.body); res.status(201).json(process); }
+  try { const proc = await IndustrialProcess.create(req.body); res.status(201).json(proc); }
   catch (err) { res.status(500).json({ message: 'Failed to create process', error: err }); }
 };
 
 export const updateProcess = async (req: Request, res: Response) => {
   try {
-    const process = await IndustrialProcess.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    if (!process) return res.status(404).json({ message: 'Process not found' });
-    res.json(process);
+    const proc = await IndustrialProcess.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!proc) return res.status(404).json({ message: 'Process not found' });
+    res.json(proc);
   } catch (err) { res.status(500).json({ message: 'Failed to update process', error: err }); }
 };
 
