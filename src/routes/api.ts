@@ -11,12 +11,17 @@ import { enrollCourse, getMyEnrollments, getEnrollment, updateLessonProgress, is
 import { getMySubscription, createSubscription, cancelSubscription, getPricingPlans } from '../controllers/subscription';
 import { createStripeSession, verifyStripeSession, stripeWebhook, initPaystack, verifyPaystack, initFlutterwave, verifyFlutterwave } from '../controllers/payment';
 import { getGoogleAuthUrl, googleCallback, listGoogleCourses, importGoogleCourses } from '../controllers/googleClassroom';
-import { upload, uploadFile } from '../controllers/upload';
+import { upload, uploadFile, uploadFiles, uploadMultiple, deleteFile, listFiles } from '../controllers/upload';
 import { getBooks, getBookBySlug, checkPurchase, downloadBook, initBookPayment, verifyBookPayment, getAllBooks, createBook, updateBook, deleteBook } from '../controllers/book';
 import { getEssays, getEssayBySlug, downloadEssay, getAllEssays, createEssay, updateEssay, deleteEssay } from '../controllers/essay';
 import { getProcesses, getProcessBySlug, initProcessPayment, downloadProcess, getAllProcesses, createProcess, updateProcess, deleteProcess } from '../controllers/industrialProcess';
 import { getChannels, getPosts, createPost, likePost, deletePost, pinPost, searchPosts } from '../controllers/community';
 import { listCollections, cleanupCollections } from '../controllers/cleanup';
+import {
+  getCatalog, getPatentDossier, acceptLicense, checkLicenseAccepted,
+  getCustomerLibrary, validateCoupon, initProductPayment, verifyProductPayment,
+  protectedDownload, getSalesDashboard, getInvoice,
+} from '../controllers/marketplace';
 
 const router = express.Router();
 
@@ -60,6 +65,9 @@ router.post('/ubuntu/calculate', calculateUbuntu);
 
 // ── Upload ────────────────────────────────────────────────────────────────────
 router.post('/upload', upload.single('file'), uploadFile);
+router.post('/upload/multiple', uploadMultiple.array('files', 20), uploadFiles);
+router.delete('/upload', deleteFile);
+router.get('/upload/list', listFiles);
 
 // ── Courses & Enrollments ─────────────────────────────────────────────────────
 router.get('/courses', getCourses);
@@ -138,5 +146,18 @@ router.get('/community/search', searchPosts);
 // ── DB Cleanup (one-time use) ─────────────────────────────────────────────────
 router.get('/admin/collections', listCollections);
 router.post('/admin/cleanup-collections', cleanupCollections);
+
+// ── Marketplace ───────────────────────────────────────────────────────────────
+router.get('/marketplace/catalog', getCatalog);
+router.get('/marketplace/patent-dossier', getPatentDossier);
+router.post('/marketplace/license/accept', acceptLicense);
+router.get('/marketplace/license/check', checkLicenseAccepted);
+router.get('/marketplace/library/:userId', getCustomerLibrary);
+router.post('/marketplace/coupon/validate', validateCoupon);
+router.post('/marketplace/payment/init', initProductPayment);
+router.post('/marketplace/payment/verify', verifyProductPayment);
+router.post('/marketplace/download/:productId', protectedDownload);
+router.get('/marketplace/invoice/:purchaseId', getInvoice);
+router.get('/admin/sales', getSalesDashboard);
 
 export default router;

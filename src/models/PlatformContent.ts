@@ -1,216 +1,189 @@
 /**
- * PlatformContent — single shared collection for all new content types.
+ * PlatformContent — single Mongoose model that stores ALL new content types
+ * (books, essays, processes, community posts, book purchases) inside the
+ * EXISTING `analyticsevents` collection.
  *
- * Uses a `contentType` discriminator so Books, Essays, IndustrialProcesses,
- * CommunityPosts, and BookPurchases all live in ONE MongoDB collection
- * (`platformcontents`) instead of 5 separate ones.
- *
- * This is the fix for the Atlas M0 500-collection limit.
+ * No new collection is created. Documents are distinguished by `contentType`.
+ * All controllers import typed query helpers from this file.
  */
-import mongoose, { Schema, Document } from 'mongoose';
+import mongoose, { Schema, Document, Model } from 'mongoose';
 
-// ── Base schema ───────────────────────────────────────────────────────────────
+// ── Shared document interface ─────────────────────────────────────────────────
 export interface IPlatformContent extends Document {
   contentType: string;
+  // Book fields
+  title?: string;
+  slug?: string;
+  author?: string;
+  description?: string;
+  abstract?: string;
+  coverUrl?: string;
+  sampleChapterUrl?: string;
+  fullFileUrl?: string;
+  fileUrl?: string;
+  fileType?: string;
+  price?: number;
+  bundleEligible?: boolean;
+  category?: string;
+  tags?: string[];
+  seriesNumber?: number;
+  published?: boolean;
+  featured?: boolean;
+  downloadCount?: number;
+  purchaseCount?: number;
+  viewCount?: number;
+  academiaUrl?: string;
+  // Process fields
+  inputs?: any[];
+  steps?: any[];
+  equipment?: string[];
+  scalingInstructions?: string;
+  expectedOutput?: string;
+  safetyNotes?: string;
+  previewContent?: string;
+  version?: string;
+  // Community fields
+  channel?: string;
+  userId?: mongoose.Types.ObjectId;
+  userName?: string;
+  userRole?: string;
+  content?: string;
+  parentId?: mongoose.Types.ObjectId | null;
+  pinned?: boolean;
+  deleted?: boolean;
+  likes?: mongoose.Types.ObjectId[];
+  // Purchase fields
+  bookId?: mongoose.Types.ObjectId;
+  bundlePurchase?: boolean;
+  amountPaid?: number;
+  currency?: string;
+  paymentGateway?: string;
+  paymentReference?: string;
+  status?: string;
   createdAt: Date;
   updatedAt: Date;
 }
 
-const PlatformContentSchema = new Schema(
-  { contentType: { type: String, required: true, index: true } },
-  { timestamps: true, discriminatorKey: 'contentType', collection: 'platformcontents' }
-);
-
-export const PlatformContent = mongoose.model<IPlatformContent>(
-  'PlatformContent',
-  PlatformContentSchema
-);
-
-// ── Book discriminator ────────────────────────────────────────────────────────
-export interface IBook extends IPlatformContent {
-  title: string;
-  slug: string;
-  author: string;
-  description: string;
-  coverUrl: string;
-  sampleChapterUrl?: string;
-  fullFileUrl?: string;
-  fileType: 'pdf' | 'epub' | 'both';
-  price: number;
-  bundleEligible: boolean;
-  category: string;
-  tags: string[];
-  seriesNumber?: number;
-  published: boolean;
-  downloadCount: number;
-  purchaseCount: number;
-}
-
-export const Book = PlatformContent.discriminator<IBook>(
-  'book',
-  new Schema({
-    title: { type: String, required: true },
-    slug: { type: String, required: true, index: true },
-    author: { type: String, default: 'CAMS Team' },
-    description: { type: String, default: '' },
-    coverUrl: { type: String, default: '' },
+const PlatformContentSchema = new Schema<IPlatformContent>(
+  {
+    contentType: { type: String, required: true, index: true },
+    // Book / Essay / Process shared
+    title: String,
+    slug: { type: String, index: true, sparse: true },
+    author: String,
+    description: String,
+    abstract: String,
+    coverUrl: String,
     sampleChapterUrl: String,
     fullFileUrl: String,
-    fileType: { type: String, enum: ['pdf', 'epub', 'both'], default: 'pdf' },
-    price: { type: Number, default: 39.99 },
-    bundleEligible: { type: Boolean, default: true },
-    category: { type: String, default: 'Mathematics' },
+    fileUrl: String,
+    fileType: String,
+    price: Number,
+    bundleEligible: Boolean,
+    category: String,
     tags: [String],
     seriesNumber: Number,
-    published: { type: Boolean, default: false },
+    published: Boolean,
+    featured: Boolean,
     downloadCount: { type: Number, default: 0 },
     purchaseCount: { type: Number, default: 0 },
-  })
-);
-
-// ── BookPurchase discriminator ────────────────────────────────────────────────
-export interface IBookPurchase extends IPlatformContent {
-  userId: mongoose.Types.ObjectId;
-  bookId?: mongoose.Types.ObjectId;
-  bundlePurchase: boolean;
-  amountPaid: number;
-  currency: string;
-  paymentGateway: string;
-  paymentReference: string;
-  status: 'pending' | 'completed' | 'failed';
-  downloadCount: number;
-}
-
-export const BookPurchase = PlatformContent.discriminator<IBookPurchase>(
-  'bookpurchase',
-  new Schema({
-    userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-    bookId: { type: Schema.Types.ObjectId },
-    bundlePurchase: { type: Boolean, default: false },
-    amountPaid: { type: Number, required: true },
-    currency: { type: String, default: 'USD' },
-    paymentGateway: { type: String, enum: ['paystack', 'stripe', 'manual'], default: 'manual' },
-    paymentReference: String,
-    status: { type: String, enum: ['pending', 'completed', 'failed'], default: 'pending' },
-    downloadCount: { type: Number, default: 0 },
-  })
-);
-
-// ── Essay discriminator ───────────────────────────────────────────────────────
-export interface IEssay extends IPlatformContent {
-  title: string;
-  slug: string;
-  author: string;
-  abstract: string;
-  fileUrl: string;
-  category: string;
-  tags: string[];
-  published: boolean;
-  featured: boolean;
-  viewCount: number;
-  downloadCount: number;
-  academiaUrl?: string;
-}
-
-export const Essay = PlatformContent.discriminator<IEssay>(
-  'essay',
-  new Schema({
-    title: { type: String, required: true },
-    slug: { type: String, required: true, index: true },
-    author: { type: String, required: true },
-    abstract: { type: String, default: '' },
-    fileUrl: { type: String, default: '' },
-    category: { type: String, default: 'General' },
-    tags: [String],
-    published: { type: Boolean, default: false },
-    featured: { type: Boolean, default: false },
     viewCount: { type: Number, default: 0 },
-    downloadCount: { type: Number, default: 0 },
     academiaUrl: String,
-  })
-);
-
-// ── IndustrialProcess discriminator ──────────────────────────────────────────
-const ProcessStepSchema = new Schema({
-  order: Number,
-  title: String,
-  description: String,
-  duration: String,
-  equipment: [String],
-  notes: String,
-});
-
-export interface IIndustrialProcess extends IPlatformContent {
-  title: string;
-  slug: string;
-  category: string;
-  description: string;
-  inputs: { name: string; quantity: string; unit: string }[];
-  steps: any[];
-  equipment: string[];
-  scalingInstructions: string;
-  expectedOutput: string;
-  safetyNotes: string;
-  previewContent: string;
-  fullFileUrl?: string;
-  coverUrl: string;
-  price: number;
-  tags: string[];
-  published: boolean;
-  version: string;
-  downloadCount: number;
-  purchaseCount: number;
-}
-
-export const IndustrialProcess = PlatformContent.discriminator<IIndustrialProcess>(
-  'industrialprocess',
-  new Schema({
-    title: { type: String, required: true },
-    slug: { type: String, required: true, index: true },
-    category: { type: String, default: 'Food Processing' },
-    description: { type: String, default: '' },
+    // Process
     inputs: [{ name: String, quantity: String, unit: String }],
-    steps: [ProcessStepSchema],
+    steps: [{ order: Number, title: String, description: String, duration: String, equipment: [String], notes: String }],
     equipment: [String],
-    scalingInstructions: { type: String, default: '' },
-    expectedOutput: { type: String, default: '' },
-    safetyNotes: { type: String, default: '' },
-    previewContent: { type: String, default: '' },
-    fullFileUrl: String,
-    coverUrl: { type: String, default: '' },
-    price: { type: Number, default: 49.99 },
-    tags: [String],
-    published: { type: Boolean, default: false },
-    version: { type: String, default: '1.0' },
-    downloadCount: { type: Number, default: 0 },
-    purchaseCount: { type: Number, default: 0 },
-  })
-);
-
-// ── CommunityPost discriminator ───────────────────────────────────────────────
-export interface ICommunityPost extends IPlatformContent {
-  channel: string;
-  userId: mongoose.Types.ObjectId;
-  userName: string;
-  userRole: string;
-  content: string;
-  parentId?: mongoose.Types.ObjectId;
-  pinned: boolean;
-  deleted: boolean;
-  likes: mongoose.Types.ObjectId[];
-}
-
-export const CommunityPost = PlatformContent.discriminator<ICommunityPost>(
-  'communitypost',
-  new Schema({
-    channel: { type: String, required: true, index: true, default: 'general' },
-    userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-    userName: { type: String, required: true },
-    userRole: { type: String, default: 'student' },
-    content: { type: String, required: true },
+    scalingInstructions: String,
+    expectedOutput: String,
+    safetyNotes: String,
+    previewContent: String,
+    version: String,
+    // Community
+    channel: { type: String, index: true, sparse: true },
+    userId: { type: Schema.Types.ObjectId, ref: 'User', index: true, sparse: true },
+    userName: String,
+    userRole: String,
+    content: String,
     parentId: { type: Schema.Types.ObjectId, default: null },
     pinned: { type: Boolean, default: false },
     deleted: { type: Boolean, default: false },
     likes: [{ type: Schema.Types.ObjectId, ref: 'User' }],
-  })
+    // Purchase
+    bookId: { type: Schema.Types.ObjectId, sparse: true },
+    bundlePurchase: Boolean,
+    amountPaid: Number,
+    currency: String,
+    paymentGateway: String,
+    paymentReference: String,
+    status: String,
+  },
+  {
+    timestamps: true,
+    // ⚠️ Reuse existing collection — no new collection created
+    collection: 'analyticsevents',
+    strict: false,
+  }
 );
+
+// Single model — all content types share it
+const PlatformContent = mongoose.model<IPlatformContent>('PlatformContent', PlatformContentSchema);
+
+// ── Typed query helpers (act like separate models) ────────────────────────────
+
+export const Book = {
+  find: (q: object = {}) => PlatformContent.find({ ...q, contentType: 'book' }),
+  findOne: (q: object) => PlatformContent.findOne({ ...q, contentType: 'book' }),
+  findById: (id: any) => PlatformContent.findOne({ _id: id, contentType: 'book' }),
+  findByIdAndUpdate: (id: any, update: object, opts?: object) =>
+    PlatformContent.findOneAndUpdate({ _id: id, contentType: 'book' }, update, opts),
+  findByIdAndDelete: (id: any) => PlatformContent.findOneAndDelete({ _id: id, contentType: 'book' }),
+  create: (data: object) => PlatformContent.create({ ...data, contentType: 'book' }),
+  countDocuments: (q: object = {}) => PlatformContent.countDocuments({ ...q, contentType: 'book' }),
+};
+
+export const BookPurchase = {
+  find: (q: object = {}) => PlatformContent.find({ ...q, contentType: 'bookpurchase' }),
+  findOne: (q: object) => PlatformContent.findOne({ ...q, contentType: 'bookpurchase' }),
+  findById: (id: any) => PlatformContent.findOne({ _id: id, contentType: 'bookpurchase' }),
+  create: (data: object) => PlatformContent.create({ ...data, contentType: 'bookpurchase' }),
+};
+
+export const Essay = {
+  find: (q: object = {}) => PlatformContent.find({ ...q, contentType: 'essay' }),
+  findOne: (q: object) => PlatformContent.findOne({ ...q, contentType: 'essay' }),
+  findById: (id: any) => PlatformContent.findOne({ _id: id, contentType: 'essay' }),
+  findByIdAndUpdate: (id: any, update: object, opts?: object) =>
+    PlatformContent.findOneAndUpdate({ _id: id, contentType: 'essay' }, update, opts),
+  findByIdAndDelete: (id: any) => PlatformContent.findOneAndDelete({ _id: id, contentType: 'essay' }),
+  create: (data: object) => PlatformContent.create({ ...data, contentType: 'essay' }),
+};
+
+export const IndustrialProcess = {
+  find: (q: object = {}) => PlatformContent.find({ ...q, contentType: 'industrialprocess' }),
+  findOne: (q: object) => PlatformContent.findOne({ ...q, contentType: 'industrialprocess' }),
+  findById: (id: any) => PlatformContent.findOne({ _id: id, contentType: 'industrialprocess' }),
+  findByIdAndUpdate: (id: any, update: object, opts?: object) =>
+    PlatformContent.findOneAndUpdate({ _id: id, contentType: 'industrialprocess' }, update, opts),
+  findByIdAndDelete: (id: any) => PlatformContent.findOneAndDelete({ _id: id, contentType: 'industrialprocess' }),
+  create: (data: object) => PlatformContent.create({ ...data, contentType: 'industrialprocess' }),
+};
+
+export const CommunityPost = {
+  find: (q: object = {}) => PlatformContent.find({ ...q, contentType: 'communitypost' }),
+  findOne: (q: object) => PlatformContent.findOne({ ...q, contentType: 'communitypost' }),
+  findById: (id: any) => PlatformContent.findOne({ _id: id, contentType: 'communitypost' }),
+  findByIdAndUpdate: (id: any, update: object, opts?: object) =>
+    PlatformContent.findOneAndUpdate({ _id: id, contentType: 'communitypost' }, update, opts),
+  findByIdAndDelete: (id: any) => PlatformContent.findOneAndDelete({ _id: id, contentType: 'communitypost' }),
+  create: (data: object) => PlatformContent.create({ ...data, contentType: 'communitypost' }),
+  countDocuments: (q: object = {}) => PlatformContent.countDocuments({ ...q, contentType: 'communitypost' }),
+  // For save() support on existing docs — fetch then save
+  findByIdAndSave: async (id: any, updateFn: (doc: IPlatformContent) => void) => {
+    const doc = await PlatformContent.findOne({ _id: id, contentType: 'communitypost' });
+    if (!doc) return null;
+    updateFn(doc);
+    return doc.save();
+  },
+};
+
+export default PlatformContent;

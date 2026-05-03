@@ -36,7 +36,7 @@ export const initProcessPayment = async (req: Request, res: Response) => {
     const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
     const params = JSON.stringify({
       email,
-      amount: Math.round(proc.price * 100),
+      amount: Math.round((proc.price ?? 49.99) * 100),
       currency: 'USD',
       metadata: { userId, processId, type: 'process' },
       callback_url: `${clientUrl}/payment/success?gateway=paystack&type=process`,
