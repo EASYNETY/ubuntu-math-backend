@@ -174,7 +174,7 @@ export const acceptLicense = async (req: Request, res: Response) => {
     }
 
     // Store consent in analyticsevents collection (no new collection)
-    await PlatformContent.create({
+    await (PlatformContent as any).create({
       contentType: 'license_acceptance',
       userId,
       productId,
@@ -357,7 +357,7 @@ export const verifyProductPayment = async (req: Request, res: Response) => {
         const meta = parsed.data.metadata || {};
         const licenseId = `CAMS-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
 
-        const purchase = await PlatformContent.create({
+        const purchase = await (PlatformContent as any).create({
           contentType: 'product_purchase',
           userId: userId || meta.userId,
           productId: productId || meta.productId,
@@ -374,7 +374,7 @@ export const verifyProductPayment = async (req: Request, res: Response) => {
           purchasedAt: new Date(),
         });
 
-        res.json({ ...purchase.toObject(), licenseId });
+        res.json({ ...(purchase as any).toObject(), licenseId });
       });
     });
   } catch (err: any) { res.status(500).json({ message: 'Verification failed', error: err.message }); }
@@ -406,7 +406,7 @@ export const protectedDownload = async (req: Request, res: Response) => {
     // Check download limit
     if (p.downloadCount >= (p.maxDownloads || 5)) {
       // Log suspicious activity
-      await PlatformContent.create({
+      await (PlatformContent as any).create({
         contentType: 'download_alert',
         userId,
         productId,
@@ -449,7 +449,7 @@ export const protectedDownload = async (req: Request, res: Response) => {
     await PlatformContent.findByIdAndUpdate(purchaseId, { $inc: { downloadCount: 1 } });
 
     // Log download
-    await PlatformContent.create({
+    await (PlatformContent as any).create({
       contentType: 'download_log',
       userId,
       productId,
