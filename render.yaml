@@ -23,3 +23,11 @@ services:
         sync: false
       - key: CLEANUP_SECRET
         sync: false
+      - key: EVRIPAY_API_URL
+        value: https://evripay.onrender.com
+      - key: EVRIPAY_CLIENT_ID
+        sync: false
+      - key: EVRIPAY_API_KEY
+        sync: false
+      - key: EVRIPAY_WEBHOOK_SECRET
+        sync: false
