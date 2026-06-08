@@ -22,6 +22,13 @@ import {
   getCustomerLibrary, validateCoupon, initProductPayment, verifyProductPayment,
   protectedDownload, getSalesDashboard, getInvoice,
 } from '../controllers/marketplace';
+import { 
+  initiatePayment as evripayInitiate,
+  getPaymentStatus as evripayStatus,
+  getPaymentHistory as evripayHistory,
+  cancelPayment as evripayCancel,
+  handleWebhook as evripayWebhook
+} from '../controllers/evripayPayment';
 
 const router = express.Router();
 
@@ -96,6 +103,13 @@ router.post('/payment/paystack/init', initPaystack);
 router.post('/payment/paystack/verify', verifyPaystack);
 router.post('/payment/flutterwave/init', initFlutterwave);
 router.post('/payment/flutterwave/verify', verifyFlutterwave);
+
+// ── EvriPay Payments (South African bank transfers) ───────────────────────────
+router.post('/payments/initiate', evripayInitiate);
+router.get('/payments/:paymentId/status', evripayStatus);
+router.get('/payments/history', evripayHistory);
+router.post('/payments/:paymentId/cancel', evripayCancel);
+router.post('/payments/webhook', evripayWebhook);
 
 // ── Google Classroom ──────────────────────────────────────────────────────────
 router.get('/google/auth-url', getGoogleAuthUrl);

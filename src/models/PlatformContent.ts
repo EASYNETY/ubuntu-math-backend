@@ -23,6 +23,7 @@ export interface IPlatformContent extends Document {
   fileUrl?: string;
   fileType?: string;
   price?: number;
+  purchasable?: boolean;
   bundleEligible?: boolean;
   category?: string;
   tags?: string[];
@@ -78,7 +79,8 @@ const PlatformContentSchema = new Schema<IPlatformContent>(
     fullFileUrl: String,
     fileUrl: String,
     fileType: String,
-    price: Number,
+    price: { type: Number, default: 0, min: 0 },
+    purchasable: { type: Boolean, default: false },
     bundleEligible: Boolean,
     category: String,
     tags: [String],

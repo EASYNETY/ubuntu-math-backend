@@ -4,7 +4,13 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
 import apiRoutes from './routes/api';
+import { validateEnvironment } from './utils/validateEnvironment';
+
 dotenv.config();
+
+// Validate environment variables before starting server
+validateEnvironment();
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 const MONGODB_URI = process.env.MONGODB_URI || '';

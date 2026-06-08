@@ -6,6 +6,7 @@ export interface IUser extends Document {
     password?: string; // Added for auth
     role: 'student' | 'admin';
     badges: string[];
+    purchasedBooks?: mongoose.Types.ObjectId[];
     createdAt: Date;
     updatedAt: Date;
 }
@@ -16,6 +17,7 @@ const UserSchema: Schema = new Schema({
     password: { type: String, required: true }, // Added required here
     role: { type: String, enum: ['student', 'admin'], default: 'student' },
     badges: [{ type: String }],
+    purchasedBooks: [{ type: Schema.Types.ObjectId, ref: 'PlatformContent' }],
 }, { timestamps: true });
 
 export default mongoose.model<IUser>('User', UserSchema);
