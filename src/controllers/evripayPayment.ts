@@ -427,6 +427,13 @@ function verifyWebhookSignature(payload: string, signature: string): boolean {
 // Helper: Process Enrollment
 async function processEnrollment(payment: any): Promise<void> {
   try {
+    console.log('Processing enrollment for payment:', { 
+      paymentId: payment.paymentId, 
+      itemType: payment.itemType, 
+      itemId: payment.itemId,
+      userId: payment.userId 
+    });
+
     if (payment.itemType === 'course') {
       // Check if enrollment already exists
       const existingEnrollment = await Enrollment.findOne({
@@ -448,20 +455,102 @@ async function processEnrollment(payment: any): Promise<void> {
       await payment.save();
 
       console.log('Course enrollment completed:', payment.paymentId);
+      
     } else if (payment.itemType === 'book') {
-      // Add book to user's purchased books
-      await User.findByIdAndUpdate(payment.userId, {
-        $addToSet: { purchasedBooks: payment.itemId }
-      });
+      // Handle both individual books and bundle
+      if (payment.itemId === 'bundle-15-books') {
+        // Bundle purchase - grant access to all books
+        console.log('Processing bundle purchase for user:', payment.userId);
+        
+        // Get all books from the Book collection
+        const allBooks = await Book.find({});
+        const bookIds = allBooks.map(b => b._id.toString());
+        
+        console.log(`Found ${bookIds.length} books to add to bundle`);
+        
+        // Add all books to user's purchased books
+        await User.findByIdAndUpdate(payment.userId, {
+          $addToSet: { purchasedBooks: { $each: bookIds } }
+        });
+
+        // Also create a marketplace purchase record for the bundle
+        const PlatformContent = (await import('../models/PlatformContent')).default;
+        await PlatformContent.create({
+          userId: payment.userId,
+          contentType: 'bookpurchase',
+          productType: 'bundle-15-books',
+          title: 'Complete 15-Book Bundle',
+          status: 'completed',
+          amountPaid: payment.amount,
+          currency: payment.currency,
+          paymentGateway: 'evripay',
+          licenseId: payment.evripayReference,
+          expiresAt: null // Lifetime access
+        });
+
+        console.log('Bundle purchase completed for:', payment.userId);
+        
+      } else if (payment.itemId === 'cams-industrial-cookbook' || payment.itemId === 'cams-master-index') {
+        // Cookbook or Master Index purchase - these are marketplace products
+        console.log('Processing cookbook/index purchase:', payment.itemId);
+        
+        const PlatformContent = (await import('../models/PlatformContent')).default;
+        await PlatformContent.create({
+          userId: payment.userId,
+          contentType: 'product_purchase',
+          productType: payment.itemId,
+          title: payment.itemName,
+          status: 'completed',
+          amountPaid: payment.amount,
+          currency: payment.currency,
+          paymentGateway: 'evripay',
+          licenseId: payment.evripayReference,
+          expiresAt: null // Lifetime access
+        });
+
+        console.log('Cookbook/index purchase completed:', payment.itemId);
+        
+      } else if (payment.itemId === 'patent-dossier') {
+        // Patent Dossier purchase
+        console.log('Processing patent dossier purchase');
+        
+        const PlatformContent = (await import('../models/PlatformContent')).default;
+        await PlatformContent.create({
+          userId: payment.userId,
+          contentType: 'product_purchase',
+          productType: 'patent-dossier',
+          title: 'CAMS Industrial Patent Dossier',
+          status: 'completed',
+          amountPaid: payment.amount,
+          currency: payment.currency,
+          paymentGateway: 'evripay',
+          licenseId: payment.evripayReference,
+          expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000) // 1 year access
+        });
+
+        console.log('Patent dossier purchase completed');
+        
+      } else {
+        // Individual book purchase
+        console.log('Processing individual book purchase:', payment.itemId);
+        
+        // Add book to user's purchased books array
+        await User.findByIdAndUpdate(payment.userId, {
+          $addToSet: { purchasedBooks: payment.itemId }
+        });
+
+        console.log('Individual book access granted:', payment.itemId);
+      }
 
       payment.enrollmentGranted = true;
       payment.enrolledAt = new Date();
       await payment.save();
 
-      console.log('Book access granted:', payment.paymentId);
+      console.log('Book/product access granted:', payment.paymentId);
     }
   } catch (error) {
     console.error('Enrollment error:', error);
+    console.error('Error stack:', error.stack);
     payment.manualReview = true;
     await payment.save();
   }
