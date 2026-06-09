@@ -487,14 +487,24 @@ export const protectedDownload = async (req: Request, res: Response) => {
 
 export const getSalesDashboard = async (_req: Request, res: Response) => {
   try {
-    const [purchases, downloads, alerts] = await Promise.all([
+    // Import Payment model
+    const Payment = (await import('../models/Payment')).default;
+    
+    const [purchases, downloads, alerts, evripayPayments] = await Promise.all([
       PlatformContent.find({ contentType: { $in: ['product_purchase', 'bookpurchase'] }, status: 'completed' })
         .sort({ createdAt: -1 }).limit(100),
       PlatformContent.find({ contentType: 'download_log' }).sort({ timestamp: -1 }).limit(50),
       PlatformContent.find({ contentType: 'download_alert' }).sort({ timestamp: -1 }).limit(20),
+      Payment.find({ status: 'completed' }).sort({ createdAt: -1 }).limit(100),
     ]);
 
-    const totalRevenue = (purchases as any[]).reduce((sum: number, p: any) => sum + (p.amountPaid || 0), 0);
+    // Calculate total revenue from both sources
+    const marketplaceRevenue = (purchases as any[]).reduce((sum: number, p: any) => sum + (p.amountPaid || 0), 0);
+    const evripayRevenue = (evripayPayments as any[]).reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+    const totalRevenue = marketplaceRevenue + evripayRevenue;
+
+    // Count total purchases from both sources
+    const totalPurchases = purchases.length + evripayPayments.length;
 
     const byProduct = (purchases as any[]).reduce((acc: any, p: any) => {
       const key = p.productType || 'unknown';
@@ -502,22 +512,54 @@ export const getSalesDashboard = async (_req: Request, res: Response) => {
       return acc;
     }, {});
 
+    // Add EvriPay payments by item type
+    (evripayPayments as any[]).forEach((p: any) => {
+      const key = p.itemType || 'unknown';
+      byProduct[key] = (byProduct[key] || 0) + 1;
+    });
+
     const revenueByProduct = (purchases as any[]).reduce((acc: any, p: any) => {
       const key = p.productType || 'unknown';
       acc[key] = (acc[key] || 0) + (p.amountPaid || 0);
       return acc;
     }, {});
 
+    // Add EvriPay payments revenue by item type
+    (evripayPayments as any[]).forEach((p: any) => {
+      const key = p.itemType || 'unknown';
+      revenueByProduct[key] = (revenueByProduct[key] || 0) + (p.amount || 0);
+    });
+
+    // Combine and format recent purchases from both sources
+    const allPurchases = [
+      ...purchases.map((p: any) => ({
+        productType: p.productType,
+        amountPaid: p.amountPaid,
+        licenseId: p.licenseId,
+        createdAt: p.createdAt,
+        source: 'marketplace',
+        currency: p.currency || 'USD',
+      })),
+      ...evripayPayments.map((p: any) => ({
+        productType: p.itemName,
+        amountPaid: p.amount,
+        licenseId: p.evripayReference,
+        createdAt: p.createdAt,
+        source: 'evripay',
+        currency: p.currency || 'ZAR',
+      })),
+    ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
     res.json({
       summary: {
         totalRevenue: totalRevenue.toFixed(2),
-        totalPurchases: purchases.length,
+        totalPurchases,
         totalDownloads: downloads.length,
         suspiciousAlerts: alerts.length,
       },
       byProduct,
       revenueByProduct,
-      recentPurchases: purchases.slice(0, 20),
+      recentPurchases: allPurchases.slice(0, 20),
       recentDownloads: downloads.slice(0, 20),
       alerts: alerts,
     });
