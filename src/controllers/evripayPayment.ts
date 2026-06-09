@@ -12,11 +12,10 @@ import crypto from 'crypto';
 // Initiate Payment
 export const initiatePayment = async (req: Request, res: Response) => {
   try {
-    const { itemType, itemId, amount } = req.body;
-    const userId = (req as any).user?.id;
+    const { itemType, itemId, amount, userId } = req.body;
 
     if (!userId) {
-      return res.status(401).json({ error: 'UNAUTHORIZED', message: 'Authentication required' });
+      return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'User ID is required' });
     }
 
     // Validate item type
@@ -122,7 +121,7 @@ export const initiatePayment = async (req: Request, res: Response) => {
 export const getPaymentStatus = async (req: Request, res: Response) => {
   try {
     const { paymentId } = req.params;
-    const userId = (req as any).user?.id;
+    const { userId } = req.query;
 
     const payment = await Payment.findOne({ paymentId });
 
@@ -130,8 +129,8 @@ export const getPaymentStatus = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'NOT_FOUND', message: 'Payment not found' });
     }
 
-    // Check ownership
-    if (payment.userId.toString() !== userId && (req as any).user?.role !== 'admin') {
+    // Check ownership (only if userId is provided)
+    if (userId && payment.userId.toString() !== userId) {
       return res.status(403).json({ error: 'FORBIDDEN', message: 'Access denied' });
     }
 
@@ -175,8 +174,11 @@ export const getPaymentStatus = async (req: Request, res: Response) => {
 // Get Payment History
 export const getPaymentHistory = async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id;
-    const { status, page = 1, limit = 20 } = req.query;
+    const { userId, status, page = 1, limit = 20 } = req.query;
+
+    if (!userId) {
+      return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'User ID is required' });
+    }
 
     const query: any = { userId };
     if (status) {
@@ -218,7 +220,11 @@ export const getPaymentHistory = async (req: Request, res: Response) => {
 export const cancelPayment = async (req: Request, res: Response) => {
   try {
     const { paymentId } = req.params;
-    const userId = (req as any).user?.id;
+    const { userId } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'User ID is required' });
+    }
 
     const payment = await Payment.findOne({ paymentId });
 
