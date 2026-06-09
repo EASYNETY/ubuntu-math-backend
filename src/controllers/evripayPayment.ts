@@ -55,27 +55,10 @@ export const initiatePayment = async (req: Request, res: Response) => {
     const paymentId = `PAY-${uuidv4()}`;
     const reference = `UBU-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
 
-    // Create payment intent with EvriPay
-    let evripayResponse;
-    try {
-      evripayResponse = await evripayClient.createPaymentIntent({
-        amount,
-        currency: 'ZAR',
-        reference,
-        metadata: {
-          userId,
-          itemType,
-          itemId
-        }
-      });
-    } catch (error: any) {
-      console.error('EvriPay API Error:', error.message);
-      return res.status(503).json({ 
-        error: 'GATEWAY_UNAVAILABLE', 
-        message: 'Payment gateway unavailable, please try again later' 
-      });
-    }
-
+    // Create payment intent with EvriPay (SKIPPED - direct bank transfer flow)
+    // For now, we're using a direct bank transfer flow without EvriPay API integration
+    // The payment will be verified manually via webhook or bank confirmation
+    
     // Create payment record
     const payment = await Payment.create({
       paymentId,
@@ -86,8 +69,8 @@ export const initiatePayment = async (req: Request, res: Response) => {
       amount,
       currency: 'ZAR',
       status: 'pending',
-      evripayReference: evripayResponse.reference,
-      evripayPaymentId: evripayResponse.paymentId
+      evripayReference: reference,
+      evripayPaymentId: paymentId // Using our own payment ID for now
     });
 
     // Return payment details
