@@ -1,2 +1,9 @@
-Deployment timestamp: 2025-01-09 12:57:00
-Force rebuild to include EvriPay payment integration
+Deployment triggered on 2025-01-09 to deploy EvriPay payment integration with admin management endpoints.
+
+Changes:
+- Added getAllPayments, approvePayment, rejectPayment admin endpoints
+- Payment management now fully functional
+- MongoDB migrated to new account (etcdb)
+
+IMPORTANT: Update MONGODB_URI environment variable in Render dashboard to:
+mongodb+srv://etcdb:etcdb@cluster0.36hswj0.mongodb.net/jjgtr-ubuntu-math?retryWrites=true&w=majority
