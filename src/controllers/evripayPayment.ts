@@ -5,15 +5,14 @@ import Course from '../models/Course';
 import { Book } from '../models/PlatformContent';
 import Enrollment from '../models/Enrollment';
 import User from '../models/User';
-import evripayClient from '../lib/evripay-client';
 import { formatZAR } from '../utils/currency';
 import crypto from 'crypto';
 
 // Initiate Payment
 export const initiatePayment = async (req: Request, res: Response) => {
+  const { itemType, itemId, amount, userId } = req.body;
+  
   try {
-    const { itemType, itemId, amount, userId } = req.body;
-
     if (!userId) {
       return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'User ID is required' });
     }
@@ -92,6 +91,8 @@ export const initiatePayment = async (req: Request, res: Response) => {
 
   } catch (error: any) {
     console.error('Payment initiation error:', error);
+    console.error('Error stack:', error.stack);
+    console.error('Request body:', { itemType, itemId, amount, userId });
     return res.status(500).json({ 
       error: 'INTERNAL_ERROR', 
       message: 'Payment processing error, please contact support',
@@ -117,7 +118,9 @@ export const getPaymentStatus = async (req: Request, res: Response) => {
       return res.status(403).json({ error: 'FORBIDDEN', message: 'Access denied' });
     }
 
-    // If still pending, check with EvriPay
+    // If still pending, check with EvriPay (DISABLED - manual verification flow)
+    // For now, payment status updates will come via webhook or manual admin action
+    /*
     if (payment.status === 'pending' && payment.evripayPaymentId) {
       try {
         const evripayStatus = await evripayClient.getPaymentStatus(payment.evripayPaymentId);
@@ -137,6 +140,7 @@ export const getPaymentStatus = async (req: Request, res: Response) => {
         console.error('Error checking EvriPay status:', error);
       }
     }
+    */
 
     return res.status(200).json({
       paymentId: payment.paymentId,
