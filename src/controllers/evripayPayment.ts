@@ -178,6 +178,140 @@ export const getPaymentHistory = async (req: Request, res: Response) => {
   }
 };
 
+// Admin: Get All Payments
+export const getAllPayments = async (req: Request, res: Response) => {
+  try {
+    const { status, page = 1, limit = 50, search } = req.query;
+
+    const query: any = {};
+    if (status && status !== 'all') {
+      query.status = status;
+    }
+    if (search) {
+      query.$or = [
+        { evripayReference: { $regex: search, $options: 'i' } },
+        { paymentId: { $regex: search, $options: 'i' } },
+        { itemName: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    const payments = await Payment.find(query)
+      .populate('userId', 'name email')
+      .sort({ createdAt: -1 })
+      .limit(Number(limit))
+      .skip((Number(page) - 1) * Number(limit));
+
+    const total = await Payment.countDocuments(query);
+    
+    // Get counts by status
+    const statusCounts = await Payment.aggregate([
+      { $group: { _id: '$status', count: { $sum: 1 } } }
+    ]);
+
+    return res.status(200).json({
+      payments: payments.map(p => ({
+        _id: p._id,
+        paymentId: p.paymentId,
+        userId: p.userId,
+        itemType: p.itemType,
+        itemId: p.itemId,
+        itemName: p.itemName,
+        amount: p.amount,
+        amountFormatted: formatZAR(p.amount),
+        currency: p.currency,
+        status: p.status,
+        reference: p.evripayReference,
+        enrollmentGranted: p.enrollmentGranted,
+        manualReview: p.manualReview,
+        createdAt: p.createdAt,
+        completedAt: p.completedAt,
+        expiresAt: p.expiresAt
+      })),
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total,
+        totalPages: Math.ceil(total / Number(limit))
+      },
+      statusCounts: statusCounts.reduce((acc, item) => {
+        acc[item._id] = item.count;
+        return acc;
+      }, {} as Record<string, number>)
+    });
+
+  } catch (error) {
+    console.error('Get all payments error:', error);
+    return res.status(500).json({ error: 'INTERNAL_ERROR', message: 'Error retrieving payments' });
+  }
+};
+
+// Admin: Approve Payment
+export const approvePayment = async (req: Request, res: Response) => {
+  try {
+    const { paymentId } = req.params;
+    const { adminUserId } = req.body;
+
+    const payment = await Payment.findOne({ paymentId });
+
+    if (!payment) {
+      return res.status(404).json({ error: 'NOT_FOUND', message: 'Payment not found' });
+    }
+
+    if (payment.status !== 'pending') {
+      return res.status(400).json({ error: 'INVALID_STATE', message: 'Payment is not pending' });
+    }
+
+    payment.status = 'completed';
+    payment.completedAt = new Date();
+    await payment.save();
+
+    // Trigger enrollment
+    await processEnrollment(payment);
+
+    return res.status(200).json({
+      paymentId: payment.paymentId,
+      status: payment.status,
+      message: 'Payment approved and access granted'
+    });
+
+  } catch (error) {
+    console.error('Approve payment error:', error);
+    return res.status(500).json({ error: 'INTERNAL_ERROR', message: 'Error approving payment' });
+  }
+};
+
+// Admin: Reject Payment
+export const rejectPayment = async (req: Request, res: Response) => {
+  try {
+    const { paymentId } = req.params;
+    const { reason, adminUserId } = req.body;
+
+    const payment = await Payment.findOne({ paymentId });
+
+    if (!payment) {
+      return res.status(404).json({ error: 'NOT_FOUND', message: 'Payment not found' });
+    }
+
+    if (payment.status !== 'pending') {
+      return res.status(400).json({ error: 'INVALID_STATE', message: 'Payment is not pending' });
+    }
+
+    payment.status = 'failed';
+    payment.failureReason = reason || 'Payment rejected by admin';
+    await payment.save();
+
+    return res.status(200).json({
+      paymentId: payment.paymentId,
+      status: payment.status,
+      message: 'Payment rejected'
+    });
+
+  } catch (error) {
+    console.error('Reject payment error:', error);
+    return res.status(500).json({ error: 'INTERNAL_ERROR', message: 'Error rejecting payment' });
+  }
+};
+
 // Cancel Payment
 export const cancelPayment = async (req: Request, res: Response) => {
   try {

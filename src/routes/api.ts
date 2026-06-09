@@ -27,7 +27,10 @@ import {
   getPaymentStatus as evripayStatus,
   getPaymentHistory as evripayHistory,
   cancelPayment as evripayCancel,
-  handleWebhook as evripayWebhook
+  handleWebhook as evripayWebhook,
+  getAllPayments as evripayGetAll,
+  approvePayment as evripayApprove,
+  rejectPayment as evripayReject
 } from '../controllers/evripayPayment';
 
 const router = express.Router();
@@ -110,6 +113,11 @@ router.get('/payments/:paymentId/status', evripayStatus);
 router.get('/payments/history', evripayHistory);
 router.post('/payments/:paymentId/cancel', evripayCancel);
 router.post('/payments/webhook', evripayWebhook);
+
+// ── Admin: Payment Management ─────────────────────────────────────────────────
+router.get('/admin/payments', evripayGetAll);
+router.post('/admin/payments/:paymentId/approve', evripayApprove);
+router.post('/admin/payments/:paymentId/reject', evripayReject);
 
 // ── Google Classroom ──────────────────────────────────────────────────────────
 router.get('/google/auth-url', getGoogleAuthUrl);
