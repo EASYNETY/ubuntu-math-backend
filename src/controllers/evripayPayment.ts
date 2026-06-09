@@ -10,7 +10,7 @@ import crypto from 'crypto';
 
 // Initiate Payment
 export const initiatePayment = async (req: Request, res: Response) => {
-  const { itemType, itemId, amount, userId } = req.body;
+  const { itemType, itemId, amount, userId, itemName: requestItemName } = req.body;
   
   try {
     if (!userId) {
@@ -22,33 +22,8 @@ export const initiatePayment = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid item type' });
     }
 
-    // Fetch item and validate price
-    let item: any;
-    let itemName: string;
-    let itemPrice: number;
-
-    if (itemType === 'course') {
-      item = await Course.findById(itemId);
-      if (!item) {
-        return res.status(404).json({ error: 'NOT_FOUND', message: 'Course not found' });
-      }
-      itemName = item.title;
-      itemPrice = item.price || 0;
-    } else if (itemType === 'book') {
-      item = await Book.findById(itemId);
-      if (!item) {
-        return res.status(404).json({ error: 'NOT_FOUND', message: 'Book not found' });
-      }
-      itemName = item.title;
-      itemPrice = item.price || 0;
-    } else {
-      return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Subscription payments not yet implemented' });
-    }
-
-    // Validate amount matches item price
-    if (Math.abs(amount - itemPrice) > 0.01) {
-      return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Amount does not match item price' });
-    }
+    // Use provided itemName or default to itemId
+    let itemName: string = requestItemName || itemId;
 
     // Generate payment ID
     const paymentId = `PAY-${uuidv4()}`;
