@@ -12,6 +12,10 @@ import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import PlatformContent, { Book, Essay, IndustrialProcess } from '../models/PlatformContent';
 import https from 'https';
+import { v4 as uuidv4 } from 'uuid';
+import Payment from '../models/Payment';
+import evripayClient from '../lib/evripay-client';
+import { formatZAR } from '../utils/currency';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Product catalog
