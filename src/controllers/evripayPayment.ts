@@ -65,7 +65,7 @@ export const initiatePayment = async (req: Request, res: Response) => {
             message: 'Book not found' 
           });
         }
-        itemName = book.title;
+        itemName = book.title || 'Book';
         expectedPrice = book.price || 0;
       } else if (itemType === 'subscription') {
         // For subscriptions, itemId might be a tier/plan ID
@@ -595,7 +595,6 @@ async function processEnrollment(payment: any): Promise<void> {
         await PlatformContent.create({
           userId: payment.userId,
           contentType: 'bookpurchase',
-          productType: 'bundle-15-books',
           title: 'Complete 15-Book Bundle',
           status: 'completed',
           amountPaid: payment.amount,
@@ -603,7 +602,7 @@ async function processEnrollment(payment: any): Promise<void> {
           paymentGateway: 'evripay',
           licenseId: payment.evripayReference,
           expiresAt: null // Lifetime access
-        });
+        } as any);
 
         // Also create a BookPurchase record for the bundle
         await BookPurchase.create({
@@ -626,7 +625,6 @@ async function processEnrollment(payment: any): Promise<void> {
         await PlatformContent.create({
           userId: payment.userId,
           contentType: 'product_purchase',
-          productType: payment.itemId,
           title: payment.itemName,
           status: 'completed',
           amountPaid: payment.amount,
@@ -634,7 +632,7 @@ async function processEnrollment(payment: any): Promise<void> {
           paymentGateway: 'evripay',
           licenseId: payment.evripayReference,
           expiresAt: null // Lifetime access
-        });
+        } as any);
 
         console.log('Cookbook/index purchase completed:', payment.itemId);
         
@@ -646,7 +644,6 @@ async function processEnrollment(payment: any): Promise<void> {
         await PlatformContent.create({
           userId: payment.userId,
           contentType: 'product_purchase',
-          productType: 'patent-dossier',
           title: 'CAMS Industrial Patent Dossier',
           status: 'completed',
           amountPaid: payment.amount,
@@ -654,7 +651,7 @@ async function processEnrollment(payment: any): Promise<void> {
           paymentGateway: 'evripay',
           licenseId: payment.evripayReference,
           expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000) // 1 year access
-        });
+        } as any);
 
         console.log('Patent dossier purchase completed');
         
@@ -689,7 +686,7 @@ async function processEnrollment(payment: any): Promise<void> {
 
       console.log('Book/product access granted:', payment.paymentId);
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Enrollment error:', error);
     console.error('Error stack:', error.stack);
     payment.manualReview = true;
