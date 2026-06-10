@@ -6,48 +6,176 @@ import { Book } from '../models/PlatformContent';
 import Enrollment from '../models/Enrollment';
 import User from '../models/User';
 import { formatZAR } from '../utils/currency';
-import crypto from 'crypto';
+import { verifyWebhookSignature } from '../utils/webhookSignature';
+import evripayClient from '../lib/evripay-client';
+import Subscription from '../models/Subscription';
 
 // Initiate Payment
 export const initiatePayment = async (req: Request, res: Response) => {
-  const { itemType, itemId, amount, userId, itemName: requestItemName } = req.body;
+  // Note: Inputs are sanitized by sanitizePaymentInitiation middleware
+  const { itemType, itemId, amount } = req.body;
   
   try {
+    // Get authenticated user from JWT token
+    const userId = req.user?.id;
+    
     if (!userId) {
-      return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'User ID is required' });
+      return res.status(401).json({ 
+        error: 'UNAUTHORIZED', 
+        message: 'Authentication required' 
+      });
     }
 
     // Validate item type
     if (!['course', 'book', 'subscription'].includes(itemType)) {
-      return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid item type' });
+      return res.status(400).json({ 
+        error: 'VALIDATION_ERROR', 
+        message: 'Invalid item type' 
+      });
     }
 
-    // Use provided itemName or default to itemId
-    let itemName: string = requestItemName || itemId;
+    // Validate amount is provided and is a positive number
+    if (amount === undefined || amount === null || amount <= 0) {
+      return res.status(400).json({ 
+        error: 'VALIDATION_ERROR', 
+        message: 'Amount must be a positive number' 
+      });
+    }
 
-    // Generate payment ID
+    // Fetch item details and validate price
+    let itemName: string;
+    let expectedPrice: number;
+
+    try {
+      if (itemType === 'course') {
+        const course = await Course.findById(itemId);
+        if (!course) {
+          return res.status(404).json({ 
+            error: 'NOT_FOUND', 
+            message: 'Course not found' 
+          });
+        }
+        itemName = course.title;
+        expectedPrice = course.price || 0;
+      } else if (itemType === 'book') {
+        const book = await Book.findById(itemId);
+        if (!book) {
+          return res.status(404).json({ 
+            error: 'NOT_FOUND', 
+            message: 'Book not found' 
+          });
+        }
+        itemName = book.title;
+        expectedPrice = book.price || 0;
+      } else if (itemType === 'subscription') {
+        // For subscriptions, itemId might be a tier/plan ID
+        // You may need to adjust this based on your subscription model
+        const subscriptionPlans: Record<string, { name: string; price: number }> = {
+          'basic': { name: 'Basic Subscription', price: 99 },
+          'premium': { name: 'Premium Subscription', price: 199 },
+          'enterprise': { name: 'Enterprise Subscription', price: 499 }
+        };
+        
+        const plan = subscriptionPlans[itemId];
+        if (!plan) {
+          return res.status(404).json({ 
+            error: 'NOT_FOUND', 
+            message: 'Subscription plan not found' 
+          });
+        }
+        itemName = plan.name;
+        expectedPrice = plan.price;
+      } else {
+        return res.status(400).json({ 
+          error: 'VALIDATION_ERROR', 
+          message: 'Invalid item type' 
+        });
+      }
+    } catch (fetchError) {
+      console.error('Error fetching item details:', fetchError);
+      return res.status(500).json({ 
+        error: 'INTERNAL_ERROR', 
+        message: 'Error validating item details' 
+      });
+    }
+
+    // Validate amount matches expected price (with 2 decimal place precision)
+    const amountRounded = Math.round(amount * 100) / 100;
+    const expectedRounded = Math.round(expectedPrice * 100) / 100;
+    
+    if (amountRounded !== expectedRounded) {
+      return res.status(400).json({ 
+        error: 'VALIDATION_ERROR', 
+        message: 'Amount does not match item price',
+        details: {
+          provided: amountRounded,
+          expected: expectedRounded
+        }
+      });
+    }
+
+    // Generate payment ID and reference
     const paymentId = `PAY-${uuidv4()}`;
     const reference = `UBU-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
 
-    // Create payment intent with EvriPay (SKIPPED - direct bank transfer flow)
-    // For now, we're using a direct bank transfer flow without EvriPay API integration
-    // The payment will be verified manually via webhook or bank confirmation
+    // Create payment intent with EvriPay API
+    // Note: If EvriPay integration is not ready, this can be disabled
+    let evripayPaymentId = paymentId;
+    let evripayReference = reference;
     
-    // Create payment record
+    try {
+      // Uncomment when EvriPay API is ready
+      /*
+      const paymentIntent = await evripayClient.createPaymentIntent({
+        amount: amountRounded,
+        currency: 'ZAR',
+        reference,
+        metadata: {
+          userId,
+          itemType,
+          itemId
+        }
+      });
+      
+      evripayPaymentId = paymentIntent.paymentId;
+      evripayReference = paymentIntent.reference;
+      */
+    } catch (evripayError: any) {
+      console.error('EvriPay API error:', evripayError);
+      
+      // Check if it's a network/availability error
+      if (evripayError.code === 'ECONNREFUSED' || 
+          evripayError.code === 'ETIMEDOUT' ||
+          evripayError.code === 'ENOTFOUND') {
+        return res.status(503).json({ 
+          error: 'GATEWAY_UNAVAILABLE', 
+          message: 'Payment gateway unavailable, please try again later' 
+        });
+      }
+      
+      // For other errors, return generic error
+      return res.status(500).json({ 
+        error: 'INTERNAL_ERROR', 
+        message: 'Payment processing error, please contact support',
+        supportEmail: 'info@maritimestudies.co.za'
+      });
+    }
+    
+    // Create payment record in database
     const payment = await Payment.create({
       paymentId,
       userId,
       itemType,
       itemId,
       itemName,
-      amount,
+      amount: amountRounded,
       currency: 'ZAR',
       status: 'pending',
-      evripayReference: reference,
-      evripayPaymentId: paymentId // Using our own payment ID for now
+      evripayReference,
+      evripayPaymentId
     });
 
-    // Return payment details
+    // Return payment details to client
     return res.status(201).json({
       paymentId: payment.paymentId,
       status: payment.status,
@@ -67,7 +195,7 @@ export const initiatePayment = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Payment initiation error:', error);
     console.error('Error stack:', error.stack);
-    console.error('Request body:', { itemType, itemId, amount, userId });
+    console.error('Request body:', { itemType, itemId, amount });
     return res.status(500).json({ 
       error: 'INTERNAL_ERROR', 
       message: 'Payment processing error, please contact support',
@@ -358,9 +486,15 @@ export const handleWebhook = async (req: Request, res: Response) => {
   try {
     const signature = req.headers['x-evripay-signature'] as string;
     const payload = JSON.stringify(req.body);
+    const secret = process.env.EVRIPAY_WEBHOOK_SECRET;
 
-    // Verify signature
-    if (!verifyWebhookSignature(payload, signature)) {
+    if (!secret) {
+      console.error('EVRIPAY_WEBHOOK_SECRET not configured');
+      return res.status(500).json({ error: 'INTERNAL_ERROR', message: 'Webhook secret not configured' });
+    }
+
+    // Verify signature using centralized utility
+    if (!verifyWebhookSignature(payload, signature, secret)) {
       console.error('Invalid webhook signature');
       return res.status(401).json({ error: 'UNAUTHORIZED', message: 'Invalid signature' });
     }
@@ -403,26 +537,6 @@ export const handleWebhook = async (req: Request, res: Response) => {
     return res.status(500).json({ error: 'INTERNAL_ERROR' });
   }
 };
-
-// Helper: Verify Webhook Signature
-function verifyWebhookSignature(payload: string, signature: string): boolean {
-  const secret = process.env.EVRIPAY_WEBHOOK_SECRET;
-  if (!secret) return false;
-
-  const expectedSignature = crypto
-    .createHmac('sha256', secret)
-    .update(payload)
-    .digest('hex');
-
-  try {
-    return crypto.timingSafeEqual(
-      Buffer.from(signature),
-      Buffer.from(expectedSignature)
-    );
-  } catch {
-    return false;
-  }
-}
 
 // Helper: Process Enrollment
 async function processEnrollment(payment: any): Promise<void> {
@@ -475,6 +589,9 @@ async function processEnrollment(payment: any): Promise<void> {
 
         // Also create a marketplace purchase record for the bundle
         const PlatformContent = (await import('../models/PlatformContent')).default;
+        const { BookPurchase } = await import('../models/PlatformContent');
+        
+        // Create PlatformContent record for bundle
         await PlatformContent.create({
           userId: payment.userId,
           contentType: 'bookpurchase',
@@ -486,6 +603,17 @@ async function processEnrollment(payment: any): Promise<void> {
           paymentGateway: 'evripay',
           licenseId: payment.evripayReference,
           expiresAt: null // Lifetime access
+        });
+
+        // Also create a BookPurchase record for the bundle
+        await BookPurchase.create({
+          userId: payment.userId,
+          bundlePurchase: true,
+          amountPaid: payment.amount,
+          currency: payment.currency,
+          paymentGateway: 'evripay',
+          paymentReference: payment.evripayReference,
+          status: 'completed',
         });
 
         console.log('Bundle purchase completed for:', payment.userId);
@@ -537,6 +665,19 @@ async function processEnrollment(payment: any): Promise<void> {
         // Add book to user's purchased books array
         await User.findByIdAndUpdate(payment.userId, {
           $addToSet: { purchasedBooks: payment.itemId }
+        });
+
+        // Also create a BookPurchase record for consistency
+        const { BookPurchase } = await import('../models/PlatformContent');
+        await BookPurchase.create({
+          userId: payment.userId,
+          bookId: payment.itemId,
+          bundlePurchase: false,
+          amountPaid: payment.amount,
+          currency: payment.currency,
+          paymentGateway: 'evripay',
+          paymentReference: payment.evripayReference,
+          status: 'completed',
         });
 
         console.log('Individual book access granted:', payment.itemId);

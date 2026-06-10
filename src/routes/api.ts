@@ -32,6 +32,8 @@ import {
   approvePayment as evripayApprove,
   rejectPayment as evripayReject
 } from '../controllers/evripayPayment';
+import { authenticateJWT, requireAdmin } from '../middleware/auth';
+import { sanitizePaymentInputs, sanitizePaymentInitiation, sanitizeAdminAction } from '../middleware/sanitization';
 
 const router = express.Router();
 
@@ -108,16 +110,16 @@ router.post('/payment/flutterwave/init', initFlutterwave);
 router.post('/payment/flutterwave/verify', verifyFlutterwave);
 
 // ── EvriPay Payments (South African bank transfers) ───────────────────────────
-router.post('/payments/initiate', evripayInitiate);
-router.get('/payments/:paymentId/status', evripayStatus);
-router.get('/payments/history', evripayHistory);
-router.post('/payments/:paymentId/cancel', evripayCancel);
-router.post('/payments/webhook', evripayWebhook);
+router.post('/payments/initiate', authenticateJWT, sanitizePaymentInitiation, evripayInitiate);
+router.get('/payments/:paymentId/status', authenticateJWT, sanitizePaymentInputs, evripayStatus);
+router.get('/payments/history', authenticateJWT, sanitizePaymentInputs, evripayHistory);
+router.post('/payments/:paymentId/cancel', authenticateJWT, sanitizePaymentInputs, evripayCancel);
+router.post('/payments/webhook', evripayWebhook); // No auth - uses signature verification
 
 // ── Admin: Payment Management ─────────────────────────────────────────────────
-router.get('/admin/payments', evripayGetAll);
-router.post('/admin/payments/:paymentId/approve', evripayApprove);
-router.post('/admin/payments/:paymentId/reject', evripayReject);
+router.get('/admin/payments', authenticateJWT, requireAdmin, sanitizePaymentInputs, evripayGetAll);
+router.post('/admin/payments/:paymentId/approve', authenticateJWT, requireAdmin, evripayApprove);
+router.post('/admin/payments/:paymentId/reject', authenticateJWT, requireAdmin, sanitizeAdminAction, evripayReject);
 
 // ── Google Classroom ──────────────────────────────────────────────────────────
 router.get('/google/auth-url', getGoogleAuthUrl);

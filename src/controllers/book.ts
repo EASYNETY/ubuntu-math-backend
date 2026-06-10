@@ -25,12 +25,33 @@ export const getBookBySlug = async (req: Request, res: Response) => {
 export const checkPurchase = async (req: Request, res: Response) => {
   try {
     const { userId, bookId } = req.query;
-    const bundlePurchase = await BookPurchase.findOne({ userId, bundlePurchase: true, status: 'completed' });
-    if (bundlePurchase) return res.json({ purchased: true, bundle: true });
+    
+    // Check for bundle purchase in both places
+    const bundlePurchaseRecord = await BookPurchase.findOne({ userId, bundlePurchase: true, status: 'completed' });
+    if (bundlePurchaseRecord) return res.json({ purchased: true, bundle: true });
+    
+    // Also check PlatformContent for bundle
+    const PlatformContent = (await import('../models/PlatformContent')).default;
+    const bundleInPlatformContent = await PlatformContent.findOne({ 
+      userId, 
+      productType: 'bundle-15-books', 
+      status: 'completed' 
+    });
+    if (bundleInPlatformContent) return res.json({ purchased: true, bundle: true });
+    
     if (bookId) {
+      // Check BookPurchase collection
       const single = await BookPurchase.findOne({ userId, bookId, status: 'completed' });
-      return res.json({ purchased: !!single, bundle: false });
+      if (single) return res.json({ purchased: true, bundle: false });
+      
+      // Also check User.purchasedBooks array
+      const User = (await import('../models/User')).default;
+      const user = await User.findById(userId);
+      if (user && user.purchasedBooks && user.purchasedBooks.includes(bookId as any)) {
+        return res.json({ purchased: true, bundle: false });
+      }
     }
+    
     res.json({ purchased: false });
   } catch (err) { res.status(500).json({ message: 'Failed to check purchase', error: err }); }
 };
@@ -42,10 +63,24 @@ export const downloadBook = async (req: Request, res: Response) => {
     const book = await Book.findById(req.params.id);
     if (!book) return res.status(404).json({ message: 'Book not found' });
 
+    // Check multiple sources for ownership
     const bundlePurchase = await BookPurchase.findOne({ userId, bundlePurchase: true, status: 'completed' });
     const singlePurchase = await BookPurchase.findOne({ userId, bookId: book._id, status: 'completed' });
+    
+    // Also check User.purchasedBooks
+    const User = (await import('../models/User')).default;
+    const user = await User.findById(userId);
+    const hasInUserModel = user && user.purchasedBooks && user.purchasedBooks.some((id: any) => id.toString() === book._id.toString());
+    
+    // Check PlatformContent for bundle
+    const PlatformContent = (await import('../models/PlatformContent')).default;
+    const bundleInPlatform = await PlatformContent.findOne({ 
+      userId, 
+      productType: 'bundle-15-books', 
+      status: 'completed' 
+    });
 
-    if (!bundlePurchase && !singlePurchase) {
+    if (!bundlePurchase && !singlePurchase && !hasInUserModel && !bundleInPlatform) {
       return res.status(403).json({ message: 'Purchase required to download' });
     }
 
