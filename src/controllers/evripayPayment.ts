@@ -578,7 +578,7 @@ async function processEnrollment(payment: any): Promise<void> {
         
         // Get all books from the Book collection
         const allBooks = await Book.find({});
-        const bookIds = allBooks.map(b => b._id.toString());
+        const bookIds = allBooks.map(b => b._id); // Keep as ObjectId, don't convert to string
         
         console.log(`Found ${bookIds.length} books to add to bundle`);
         
