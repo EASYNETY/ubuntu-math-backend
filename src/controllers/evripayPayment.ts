@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
+import mongoose from 'mongoose';
 import Payment from '../models/Payment';
 import Course from '../models/Course';
 import { Book } from '../models/PlatformContent';
@@ -582,10 +583,15 @@ async function processEnrollment(payment: any): Promise<void> {
         
         console.log(`Found ${bookIds.length} books to add to bundle`);
         
-        // Add all books to user's purchased books
-        await User.findByIdAndUpdate(payment.userId, {
-          $addToSet: { purchasedBooks: { $each: bookIds } }
-        });
+        if (bookIds.length > 0) {
+          // Add all books to user's purchased books
+          await User.findByIdAndUpdate(payment.userId, {
+            $addToSet: { purchasedBooks: { $each: bookIds } }
+          });
+          console.log(`Added ${bookIds.length} books to user ${payment.userId}`);
+        } else {
+          console.warn('No books found in database for bundle purchase');
+        }
 
         // Also create a marketplace purchase record for the bundle
         const PlatformContent = (await import('../models/PlatformContent')).default;
@@ -659,25 +665,32 @@ async function processEnrollment(payment: any): Promise<void> {
         // Individual book purchase
         console.log('Processing individual book purchase:', payment.itemId);
         
-        // Add book to user's purchased books array
-        await User.findByIdAndUpdate(payment.userId, {
-          $addToSet: { purchasedBooks: payment.itemId }
-        });
+        // Validate that itemId is a valid ObjectId before adding
+        if (mongoose.Types.ObjectId.isValid(payment.itemId)) {
+          // Add book to user's purchased books array
+          await User.findByIdAndUpdate(payment.userId, {
+            $addToSet: { purchasedBooks: payment.itemId }
+          });
+          console.log(`Added book ${payment.itemId} to user ${payment.userId}`);
 
-        // Also create a BookPurchase record for consistency
-        const { BookPurchase } = await import('../models/PlatformContent');
-        await BookPurchase.create({
-          userId: payment.userId,
-          bookId: payment.itemId,
-          bundlePurchase: false,
-          amountPaid: payment.amount,
-          currency: payment.currency,
-          paymentGateway: 'evripay',
-          paymentReference: payment.evripayReference,
-          status: 'completed',
-        });
+          // Also create a BookPurchase record for consistency
+          const { BookPurchase } = await import('../models/PlatformContent');
+          await BookPurchase.create({
+            userId: payment.userId,
+            bookId: payment.itemId,
+            bundlePurchase: false,
+            amountPaid: payment.amount,
+            currency: payment.currency,
+            paymentGateway: 'evripay',
+            paymentReference: payment.evripayReference,
+            status: 'completed',
+          });
 
-        console.log('Individual book access granted:', payment.itemId);
+          console.log('Individual book access granted:', payment.itemId);
+        } else {
+          console.error('Invalid book ObjectId:', payment.itemId);
+          throw new Error(`Invalid book ID: ${payment.itemId}`);
+        }
       }
 
       payment.enrollmentGranted = true;

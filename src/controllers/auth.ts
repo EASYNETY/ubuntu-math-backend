@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import User from '../models/User';
 
 const SECRET = 'test'; // In production, use process.env.JWT_SECRET
+const TOKEN_EXPIRY = '7d'; // 7 days
 
 export const signin = async (req: Request, res: Response) => {
     const { email, password } = req.body;
@@ -29,7 +30,7 @@ export const signin = async (req: Request, res: Response) => {
             return;
         }
 
-        const token = jwt.sign({ email: existingUser.email, id: existingUser._id }, SECRET, { expiresIn: "1h" });
+        const token = jwt.sign({ email: existingUser.email, id: existingUser._id }, SECRET, { expiresIn: TOKEN_EXPIRY });
 
         res.status(200).json({ result: existingUser, token });
     } catch (error) {
@@ -52,7 +53,7 @@ export const signup = async (req: Request, res: Response) => {
 
         const result = await User.create({ email, password: hashedPassword, name: `${firstName} ${lastName}`, role: 'student', badges: [] });
 
-        const token = jwt.sign({ email: result.email, id: result._id }, SECRET, { expiresIn: "1h" });
+        const token = jwt.sign({ email: result.email, id: result._id }, SECRET, { expiresIn: TOKEN_EXPIRY });
 
         res.status(200).json({ result, token });
     } catch (error) {
