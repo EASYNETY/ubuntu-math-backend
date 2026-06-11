@@ -1,9 +1,2 @@
-Deployment triggered on 2025-01-09 to deploy EvriPay payment integration with admin management endpoints.
-
-Changes:
-- Added getAllPayments, approvePayment, rejectPayment admin endpoints
-- Payment management now fully functional
-- MongoDB migrated to new account (etcdb)
-
-IMPORTANT: Update MONGODB_URI environment variable in Render dashboard to:
-mongodb+srv://etcdb:etcdb@cluster0.36hswj0.mongodb.net/jjgtr-ubuntu-math?retryWrites=true&w=majority
+Force rebuild: JWT token expiry fix - $(date)
+This file triggers a Render redeploy to ensure latest changes are live.
