@@ -226,22 +226,46 @@ export const getCustomerLibrary = async (req: Request, res: Response) => {
     // Enrich with product details
     const library = await Promise.all(purchases.map(async (p: any) => {
       let product = null;
+      let productType = p.productType || 'unknown';
+      
+      // Handle different product types
       if (p.productType === 'book' || p.bookId) {
         product = await Book.findById(p.bookId || p.productId);
+        productType = 'book';
       } else if (p.productType === 'process') {
         product = await IndustrialProcess.findById(p.productId);
       } else if (p.productType === 'patent-dossier') {
-        product = { title: 'CAMS Industrial Patent Dossier', type: 'patent-dossier' };
+        product = { 
+          title: 'CAMS Industrial Patent Dossier',
+          description: 'Complete industrial patent documentation and technical specifications',
+          type: 'patent-dossier',
+          fileUrl: process.env.PATENT_DOSSIER_URL || ''
+        };
+      } else if (p.productType === 'cams-industrial-cookbook') {
+        product = {
+          title: 'CAMS Industrial Cookbook',
+          description: 'Comprehensive guide to industrial processes and manufacturing techniques',
+          type: 'document',
+          fileUrl: process.env.COOKBOOK_URL || ''
+        };
+      } else if (p.productType === 'cams-master-index') {
+        product = {
+          title: 'CAMS Master Index',
+          description: 'Complete index and reference guide for CAMS resources',
+          type: 'document',
+          fileUrl: process.env.MASTER_INDEX_URL || ''
+        };
       }
+      
       return {
         purchaseId: p._id,
-        productType: p.productType || (p.bookId ? 'book' : 'unknown'),
+        productType,
         product,
         amountPaid: p.amountPaid,
         currency: p.currency || 'USD',
         purchasedAt: p.createdAt,
         downloadCount: p.downloadCount || 0,
-        maxDownloads: p.maxDownloads || 5,
+        maxDownloads: p.maxDownloads || 100, // Increased from 5 to 100
         licenseId: p.licenseId,
         bundlePurchase: p.bundlePurchase,
       };
@@ -407,8 +431,8 @@ export const protectedDownload = async (req: Request, res: Response) => {
 
     const p = purchase as any;
 
-    // Check download limit
-    if (p.downloadCount >= (p.maxDownloads || 5)) {
+    // Check download limit (increased to 100)
+    if (p.downloadCount >= (p.maxDownloads || 100)) {
       // Log suspicious activity
       await (PlatformContent as any).create({
         contentType: 'download_alert',
@@ -431,6 +455,12 @@ export const protectedDownload = async (req: Request, res: Response) => {
     if (p.productType === 'patent-dossier') {
       fileUrl = process.env.PATENT_DOSSIER_URL || '';
       productTitle = 'CAMS Industrial Patent Dossier';
+    } else if (p.productType === 'cams-industrial-cookbook') {
+      fileUrl = process.env.COOKBOOK_URL || '';
+      productTitle = 'CAMS Industrial Cookbook';
+    } else if (p.productType === 'cams-master-index') {
+      fileUrl = process.env.MASTER_INDEX_URL || '';
+      productTitle = 'CAMS Master Index';
     } else {
       const product = await PlatformContent.findOne({ _id: productId });
       fileUrl = (product as any)?.fullFileUrl || (product as any)?.fileUrl || '';
@@ -469,7 +499,7 @@ export const protectedDownload = async (req: Request, res: Response) => {
       downloadUrl: fileUrl,
       fingerprint,
       productTitle,
-      remainingDownloads: (p.maxDownloads || 5) - (p.downloadCount + 1),
+      remainingDownloads: (p.maxDownloads || 100) - (p.downloadCount + 1),
       watermarkData: {
         name: fingerprint.buyerName,
         email: fingerprint.buyerEmail,
