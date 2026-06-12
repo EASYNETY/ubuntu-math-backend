@@ -234,27 +234,23 @@ export const getCustomerLibrary = async (req: Request, res: Response) => {
         productType = 'book';
       } else if (p.productType === 'process') {
         product = await IndustrialProcess.findById(p.productId);
-      } else if (p.productType === 'patent-dossier') {
-        product = { 
-          title: 'CAMS Industrial Patent Dossier',
-          description: 'Complete industrial patent documentation and technical specifications',
-          type: 'patent-dossier',
-          fileUrl: process.env.PATENT_DOSSIER_URL || ''
-        };
-      } else if (p.productType === 'cams-industrial-cookbook') {
-        product = {
-          title: 'CAMS Industrial Cookbook',
-          description: 'Comprehensive guide to industrial processes and manufacturing techniques',
-          type: 'document',
-          fileUrl: process.env.COOKBOOK_URL || ''
-        };
-      } else if (p.productType === 'cams-master-index') {
-        product = {
-          title: 'CAMS Master Index',
-          description: 'Complete index and reference guide for CAMS resources',
-          type: 'document',
-          fileUrl: process.env.MASTER_INDEX_URL || ''
-        };
+      } else {
+        // Fetch marketplace product from database dynamically (no env vars needed)
+        const marketplaceProduct = await PlatformContent.findOne({
+          contentType: 'marketplace_product',
+          productId: p.productType
+        });
+        
+        if (marketplaceProduct) {
+          product = {
+            title: (marketplaceProduct as any).title,
+            description: (marketplaceProduct as any).description,
+            type: (marketplaceProduct as any).productId,
+            fileUrl: (marketplaceProduct as any).fileUrl || '',
+            price: (marketplaceProduct as any).price,
+            currency: (marketplaceProduct as any).currency,
+          };
+        }
       }
       
       return {
@@ -265,7 +261,7 @@ export const getCustomerLibrary = async (req: Request, res: Response) => {
         currency: p.currency || 'USD',
         purchasedAt: p.createdAt,
         downloadCount: p.downloadCount || 0,
-        maxDownloads: p.maxDownloads || 100, // Increased from 5 to 100
+        maxDownloads: p.maxDownloads || 100,
         licenseId: p.licenseId,
         bundlePurchase: p.bundlePurchase,
       };
@@ -447,21 +443,22 @@ export const protectedDownload = async (req: Request, res: Response) => {
       return res.status(429).json({ message: 'Download limit reached. Contact support to reset.' });
     }
 
-    // Get product file URL
+    // Get product file URL dynamically from database
     let fileUrl = '';
     let productTitle = '';
     const user = await import('../models/User').then(m => m.default.findById(userId).select('name email'));
 
-    if (p.productType === 'patent-dossier') {
-      fileUrl = process.env.PATENT_DOSSIER_URL || '';
-      productTitle = 'CAMS Industrial Patent Dossier';
-    } else if (p.productType === 'cams-industrial-cookbook') {
-      fileUrl = process.env.COOKBOOK_URL || '';
-      productTitle = 'CAMS Industrial Cookbook';
-    } else if (p.productType === 'cams-master-index') {
-      fileUrl = process.env.MASTER_INDEX_URL || '';
-      productTitle = 'CAMS Master Index';
+    // Fetch marketplace product from database (no env vars needed)
+    const marketplaceProduct = await PlatformContent.findOne({
+      contentType: 'marketplace_product',
+      productId: p.productType
+    });
+
+    if (marketplaceProduct) {
+      fileUrl = (marketplaceProduct as any).fileUrl || '';
+      productTitle = (marketplaceProduct as any).title || 'Document';
     } else {
+      // Fallback to regular product lookup
       const product = await PlatformContent.findOne({ _id: productId });
       fileUrl = (product as any)?.fullFileUrl || (product as any)?.fileUrl || '';
       productTitle = (product as any)?.title || 'Document';
