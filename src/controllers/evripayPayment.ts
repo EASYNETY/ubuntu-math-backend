@@ -59,15 +59,29 @@ export const initiatePayment = async (req: Request, res: Response) => {
         itemName = course.title;
         expectedPrice = course.price || 0;
       } else if (itemType === 'book') {
-        const book = await Book.findById(itemId);
-        if (!book) {
-          return res.status(404).json({ 
-            error: 'NOT_FOUND', 
-            message: 'Book not found' 
-          });
+        if (itemId === 'bundle-15-books') {
+          itemName = 'Complete 15-Book Bundle';
+          expectedPrice = 499.99;
+        } else if (itemId === 'cams-industrial-cookbook') {
+          itemName = 'CAMS Industrial Cookbook';
+          expectedPrice = 9.99;
+        } else if (itemId === 'cams-master-index') {
+          itemName = 'CAMS Master Index';
+          expectedPrice = 9.99;
+        } else if (itemId === 'patent-dossier') {
+          itemName = 'CAMS Industrial Patent Dossier';
+          expectedPrice = 1000.00;
+        } else {
+          const book = await Book.findById(itemId);
+          if (!book) {
+            return res.status(404).json({ 
+              error: 'NOT_FOUND', 
+              message: 'Book not found' 
+            });
+          }
+          itemName = book.title || 'Book';
+          expectedPrice = book.price || 0;
         }
-        itemName = book.title || 'Book';
-        expectedPrice = book.price || 0;
       } else if (itemType === 'subscription') {
         // For subscriptions, itemId might be a tier/plan ID
         // You may need to adjust this based on your subscription model
@@ -104,13 +118,23 @@ export const initiatePayment = async (req: Request, res: Response) => {
     const amountRounded = Math.round(amount * 100) / 100;
     const expectedRounded = Math.round(expectedPrice * 100) / 100;
     
-    if (amountRounded !== expectedRounded) {
+    // Check if amount matches expected price or any of the coupon-discounted prices
+    const allowedPrices = [
+      expectedRounded,
+      Math.round((expectedPrice * 0.9) * 100) / 100, // UBUNTU10 (10% off)
+      Math.round(Math.max(0, expectedPrice - 50) * 100) / 100, // CAMS50 ($50 off)
+      Math.round((expectedPrice * 0.75) * 100) / 100, // LAUNCH25 (25% off)
+      Math.round(Math.max(0, expectedPrice - 100) * 100) / 100, // DOSSIER100 ($100 off)
+    ];
+    
+    if (!allowedPrices.includes(amountRounded)) {
       return res.status(400).json({ 
         error: 'VALIDATION_ERROR', 
         message: 'Amount does not match item price',
         details: {
           provided: amountRounded,
-          expected: expectedRounded
+          expected: expectedRounded,
+          allowedPrices
         }
       });
     }
