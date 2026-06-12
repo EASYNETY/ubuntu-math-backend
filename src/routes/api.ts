@@ -133,6 +133,7 @@ router.get('/books/all', getAllBooks);
 router.get('/books/slug/:slug', getBookBySlug);
 router.get('/books/check-purchase', checkPurchase);
 router.post('/books/:id/download', downloadBook);
+router.post('/books/download/:id', downloadBook); // Alternative route for frontend compatibility
 router.post('/books/payment/init', initBookPayment);
 router.post('/books/payment/verify', verifyBookPayment);
 router.post('/books', createBook);
