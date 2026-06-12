@@ -138,9 +138,12 @@ export const requireAdmin = async (req: Request, res: Response, next: NextFuncti
 
     // Import User model to check role
     const User = (await import('../models/User')).default;
-    const user = await User.findById(req.user.id);
+    
+    // Use findOne instead of findById to ensure proper ID matching
+    const user = await User.findOne({ _id: req.user.id });
 
     if (!user || user.role !== 'admin') {
+      console.log(`Admin access denied for user ${req.user.id} (role: ${user?.role || 'not found'})`);
       res.status(403).json({ 
         error: 'FORBIDDEN', 
         message: 'Admin access required' 
@@ -150,6 +153,7 @@ export const requireAdmin = async (req: Request, res: Response, next: NextFuncti
 
     next();
   } catch (error) {
+    console.error('Admin authorization error:', error);
     res.status(500).json({ 
       error: 'INTERNAL_ERROR', 
       message: 'Authorization error' 
