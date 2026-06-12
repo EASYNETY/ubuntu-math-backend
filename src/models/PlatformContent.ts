@@ -20,6 +20,7 @@ export interface IPlatformContent extends Document {
   coverUrl?: string;
   sampleChapterUrl?: string;
   fullFileUrl?: string;
+  fullContentUrl?: string;  // Full book content as text for in-platform reading
   fileUrl?: string;
   fileType?: string;
   price?: number;
@@ -77,6 +78,7 @@ const PlatformContentSchema = new Schema<IPlatformContent>(
     coverUrl: String,
     sampleChapterUrl: String,
     fullFileUrl: String,
+    fullContentUrl: String,
     fileUrl: String,
     fileType: String,
     price: { type: Number, default: 0, min: 0 },
