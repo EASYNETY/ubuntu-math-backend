@@ -139,8 +139,8 @@ export const requireAdmin = async (req: Request, res: Response, next: NextFuncti
     // Import User model to check role
     const User = (await import('../models/User')).default;
     
-    // Use findOne instead of findById to ensure proper ID matching
-    const user = await User.findOne({ _id: req.user.id });
+    // Use email to find the user instead of _id, to bypass potential ObjectId casting issues
+    const user = await User.findOne({ email: req.user.email });
 
     if (!user || user.role !== 'admin') {
       console.log(`Admin access denied for user ${req.user.id} (role: ${user?.role || 'not found'})`);
