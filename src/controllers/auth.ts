@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import User from '../models/User';
 
-const SECRET = 'test'; // In production, use process.env.JWT_SECRET
+const SECRET = process.env.JWT_SECRET || 'test';
 const TOKEN_EXPIRY = '7d'; // 7 days
 
 export const signin = async (req: Request, res: Response) => {
