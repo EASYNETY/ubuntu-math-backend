@@ -655,13 +655,17 @@ async function processEnrollment(payment: any): Promise<void> {
         await PlatformContent.create({
           userId: payment.userId,
           contentType: 'product_purchase',
+          productType: payment.itemId, // CRITICAL: Store productId for lookup
+          productId: payment.itemId,   // Alternative field name for consistency
           title: payment.itemName,
           status: 'completed',
           amountPaid: payment.amount,
           currency: payment.currency,
           paymentGateway: 'evripay',
           licenseId: payment.evripayReference,
-          expiresAt: null // Lifetime access
+          expiresAt: null, // Lifetime access
+          downloadCount: 0,
+          maxDownloads: 100
         } as any);
 
         console.log('Cookbook/index purchase completed:', payment.itemId);
@@ -674,13 +678,17 @@ async function processEnrollment(payment: any): Promise<void> {
         await PlatformContent.create({
           userId: payment.userId,
           contentType: 'product_purchase',
+          productType: payment.itemId, // CRITICAL: Store productId for lookup
+          productId: payment.itemId,   // Alternative field name for consistency
           title: 'CAMS Industrial Patent Dossier',
           status: 'completed',
           amountPaid: payment.amount,
           currency: payment.currency,
           paymentGateway: 'evripay',
           licenseId: payment.evripayReference,
-          expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000) // 1 year access
+          expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year access
+          downloadCount: 0,
+          maxDownloads: 100
         } as any);
 
         console.log('Patent dossier purchase completed');
