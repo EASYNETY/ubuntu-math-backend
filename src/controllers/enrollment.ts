@@ -6,13 +6,37 @@ import Course from '../models/Course';
 import User from '../models/User';
 export const enrollCourse = async (req: Request, res: Response) => {
   try {
-    const { userId, courseId } = req.body;
-    const course = await Course.findById(courseId);
+    let { userId, courseId } = req.body;
+    if (!courseId && req.body.id) courseId = req.body.id;
+    
+    // If courseId is an object (e.g. event object or populated course)
+    if (typeof courseId === 'object' && courseId !== null) {
+      courseId = courseId._id || courseId.id || String(courseId);
+    }
+
+    if (!courseId) {
+      return res.status(400).json({ message: 'courseId is required' });
+    }
+
+    // Try finding by ID first, then by slug
+    let course = null;
+    if (mongoose.Types.ObjectId.isValid(courseId)) {
+      course = await Course.findById(courseId);
+    }
+    if (!course) {
+      course = await Course.findOne({ slug: courseId });
+    }
+
     if (!course) return res.status(404).json({ message: 'Course not found' });
-    const existing = await Enrollment.findOne({ userId, courseId });
+    
+    // Use the actual course._id for the enrollment to ensure it's an ObjectId
+    const actualCourseId = course._id;
+    
+    const existing = await Enrollment.findOne({ userId, courseId: actualCourseId });
     if (existing) return res.status(200).json(existing);
+    
     const lessonProgress = course.lessons.map((l: any) => ({ lessonId: l._id, completed: false, watchedSeconds: 0 }));
-    const enrollment = await Enrollment.create({ userId, courseId, lessonProgress, overallProgress: 0 });
+    const enrollment = await Enrollment.create({ userId, courseId: actualCourseId, lessonProgress, overallProgress: 0 });
     res.status(201).json(enrollment);
   } catch (err) { res.status(500).json({ message: 'Enrollment failed', error: err }); }
 };
