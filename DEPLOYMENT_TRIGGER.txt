@@ -1,2 +1,4 @@
-Force rebuild: JWT token expiry fix - $(date)
+Force rebuild: Fix enrollment Course not found - 2026-10-03
+- enrollCourse now uses 3-strategy course lookup (findById + explicit ObjectId $eq + slug)
+- Fixes 404 "Course not found" for valid courseIds like 69bb11dc1a0055a7489698da
 This file triggers a Render redeploy to ensure latest changes are live.

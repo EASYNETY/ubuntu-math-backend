@@ -18,16 +18,28 @@ export const enrollCourse = async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'courseId is required' });
     }
 
-    // Try finding by ID first, then by slug
+    // Try multiple lookup strategies to handle ObjectId strings and slugs
     let course = null;
+
     if (mongoose.Types.ObjectId.isValid(courseId)) {
+      // Strategy 1: findById (standard ObjectId cast)
       course = await Course.findById(courseId);
+
+      // Strategy 2: explicit $eq query on _id as ObjectId (handles Mongoose casting edge cases)
+      if (!course) {
+        course = await Course.findOne({ _id: new mongoose.Types.ObjectId(courseId) });
+      }
     }
+
+    // Strategy 3: slug fallback (works even when a slug is passed as courseId)
     if (!course) {
       course = await Course.findOne({ slug: courseId });
     }
 
-    if (!course) return res.status(404).json({ message: 'Course not found' });
+    if (!course) {
+      console.error(`[enrollment] Course not found — attempted courseId: ${courseId}`);
+      return res.status(404).json({ message: 'Course not found', courseId });
+    }
     
     // Use the actual course._id for the enrollment to ensure it's an ObjectId
     const actualCourseId = course._id;
